@@ -161,10 +161,10 @@ class Dispatch (Packetizer):
 
 		if notify:
 			typ = dispatch.NOTIFY
-			dtyp = debug.constants.type.CLIENT_NOTIFY
+			dtyp = debug.Type.CLIENT_NOTIFY
 		else:
 			typ = self.INVOKE
-			dtyp = debug.constants.type.CLIENT_INVOKE
+			dtyp = debug.Type.CLIENT_INVOKE
 
 		msg = [ typ, seqid, method, arg ]
 
@@ -173,7 +173,7 @@ class Dispatch (Packetizer):
 					method = method,
 					seqid = seqid,
 					arg = arg,
-					dir = debug.constants.dir.OUTGOING,
+					dir = debug.Direction.OUTGOING,
 					remote = self.remoteAddress(),
 					port = self.remotePort(),
 					typ = dtyp
@@ -214,10 +214,10 @@ class Dispatch (Packetizer):
 				method = method,
 				seqid = seqid,
 				arg = arg,
-				dir = debug.constants.dir.INCOMING,
+				dir = debug.Direction.INCOMING,
 				remote = self.remoteAddress(),
 				port = self.remotePort(),
-				typ = debug.constants.dir.type.SERVER,
+				typ = debug.Type.SERVER,
 				error = None if hook else "unknown method"
 				)
 			if response:

@@ -3,11 +3,12 @@ import socket
 import log
 import dispatch
 import debug
+import threading
 
 
 ##=======================================================================
 
-class StreamWrapper (object):
+class ClearStreamWrapper (object):
 	"""
 	A shared wrapper around a socket, for which close() is idempotent. Of course,
 	no encyrption on this interface.
@@ -51,135 +52,156 @@ class StreamWrapper (object):
 		return self.socket.getpeername()[0] if self.socket else None
 	def reportPort (self):
 		return self.socket.getpeername()[1] if self.socket else None
+	def remotePeer (self):
+		return self.socket.getpeername() if self.socket else None
 
 ##=======================================================================
 
-exports.Transport = class Transport extends Dispatch
+class Transport (dispatch.Dispatch):
 
-  ##-----------------------------------------
-  # Public API
-  # 
+	def __init__ (self, port=None, host=None, tcp_opts={}, 
+				  stream=None, log_obj=None, parent=None,
+				  hooks={}, dbgr=None):
 
-  constructor : ({ @port, @host, @tcp_opts, tcp_stream, @log_obj,
-                   @parent, @do_tcp_delay, @hooks, dbgr}) ->
-    super
+		self._host = "localhost" if (not host or host is "-") else host
+		self._port = port
+		self._tcp_opts = tcp_opts
+		self._explicit_close = False
+		self._remote_str = ":".join([self.host,port])
+
+		self.setLogger(log_obj)
+		self._generation = 1
+		self._lock = threading.Lock()
+		self._dbgr = dbgr
+		self._hooks = hooks
     
-    @host = "localhost" if not @host or @host is "-"
-    @tcp_opts = {} unless @tcp_opts
-    @tcp_opts.host = @host
-    @tcp_opts.port = @port
-    @_explicit_close = false
-    
-    @_remote_str = [ @host, @port].join ":"
-    @set_logger @log_obj 
-    
-    @_lock = new Lock()
-    @_generation = 1
-    
-    @_dbgr = dbgr
+	    # We don't store the TCP stream directly, but rather, sadly,
+	    # a **wrapper** around the TCP stream.  This is to make stream
+	    # closes idempotent. The case we want to avoid is two closes
+	    # on us (due to errors), but the second closing the reconnected
+	    # stream, rather than the original stream.  This level of
+	    # indirection solves this.
+	    self._stream_w = null
 
-    # We don't store the TCP stream directly, but rather, sadly,
-    # a **wrapper** around the TCP stream.  This is to make stream
-    # closes idempotent. The case we want to avoid is two closes
-    # on us (due to errors), but the second closing the reconnected
-    # stream, rather than the original stream.  This level of
-    # indirection solves this.
-    @_tcpw = null
+	    # potentially set @_tcpw to be non-null
+	    if stream:
+		    self.__activateStream(stream)
 
-    # potentially set @_tcpw to be non-null
-    @_activate_stream tcp_stream if tcp_stream
+	##-----------------------------------------
 
-  ##-----------------------------------------
-
-  set_debugger : (d) -> @_dbgr = d
+	def setDebugger (d): self._dbgr = d
   
-  ##---------------------------------------
-  
-  set_debug_flags : (d) ->
-    @set_debugger dbg.make_debugger d, @log_obj
+	##---------------------------------------
+
+	def setDebugFlags (f):
+		self.setDebugger(debug.makeDebugger(d,self._log_obj))
    
-  ##-----------------------------------------
+	##-----------------------------------------
 
-  next_generation : () ->
-    """To be called by StreamWrapper objects but not by
-    average users."""
-    ret = @_generation
-    @_generation++
-    return ret
+	def __nextGeneration (self):
+	    """To be called by StreamWrapper objects but not by
+    	average users."""
+	    ret = self._generation
+	    self._generation++
+    	return ret
  
-  ##-----------------------------------------
+	##-----------------------------------------
 
-  get_generation : () -> if @_tcpw then @_tcpw.get_generation() else -1 
+	def getGeneration (self):
+ 	  	return self._stream_w.getGeneration() if self._stream_w else -1 
  
-  ##-----------------------------------------
+	##-----------------------------------------
 
-  remote_address : () -> if @_tcpw? then @_tcpw.remote_address() else null
-  remote_port : () -> if @_tcpw? then @_tcpw.remote_port() else null
-   
-  ##-----------------------------------------
+	def remoteAddress (self):
+	  	return self._stream_w.remoteAddress() if self._stream_w else None
+	def remotePort (self):
+	  	return self._stream_w.remotePort() if self._stream_w else None
+  	def remotePeer (self):
+  		return self._stream_w.remotePeer() if self._stream_w else None
 
-  set_logger : (o) ->
-    o = log.new_default_logger() unless o
-    @log_obj = o
-    @log_obj.set_remote @_remote_str
-   
-  ##-----------------------------------------
+	##-----------------------------------------
 
-  get_logger : () -> @log_obj
-   
-  ##-----------------------------------------
+	def setLogger : (o) ->
+		if not o:
+			o = log.newDefaultLoggger()
+		self._log_obj = o
+		self._log_obj.setRemote(self._remote_str)
 
-  is_connected : () -> @_tcpw?.is_connected()
-   
-  ##-----------------------------------------
+	##-----------------------------------------
 
-  connect : (cb) ->
-    await @_lock.acquire defer()
-    if not @is_connected()
-      await @_connect_critical_section defer err
-    else
-      err = null
-    @_lock.release()
-    cb err if cb
-    @_reconnect true if err?
+	def getLogger (self): return self._log_obj
 
-  ##-----------------------------------------
+	##-----------------------------------------
 
-  reset : (w) ->
-    w = @_tcpw unless w
-    @_close w
+	def isConnected (self):
+		if self._stream_w: return self._stream_w.isConnected()
+		else: 	           return False
 
-  ##-----------------------------------------
+	##-----------------------------------------
+
+	def connect (self):
+		self._lock.acquire()
+		if not self.isConnected():
+			self.__connectCiriticalSection()
+			ret = self.isConnected()
+		else:
+			ret = True
+		self._lock.release()
+		if not ret:
+			self.__backgroundReconnectLoop(True)
+		return ret
+
+	##-----------------------------------------
+
+	def __backgroundReconnectLoop(self, first):
+		"""
+		The standard transport won't try to reconnect....
+		"""
+		return False
+
+	##-----------------------------------------
+
+	def reset(self, w):
+		if not w: w = self._stream_w
+		self.__close(w)
+
+	##-----------------------------------------
+
+	def close (self):
+		"""
+		Call to explicitly close this connection.  After an explicit close,
+		reconnects are not attempted....
+		"""
+		self._explicit_close = True
+		if self._stream_w:
+			w = self._stream_w
+			self._stream_w = None
+			w.close()
+	#
+	# /Public API
+	##---------------------------------------------------
+
+	def __warn(e): self._log_obj.warn(e)
+	def __info(e): self._log_obj.info(e)
+	def __fatal(e): self._log_obj.fatal(e)
+	def __debug(e): self._log_obj.debug(e)
+	def __error(e): self._log_obj.error(e)
   
-  close : () ->
-    @_explicit_close = true
-    if @_tcpw
-      @_tcpw.close()
-      @_tcpw = null
+	##-----------------------------------------
 
-  #
-  # /Public API
-  ##---------------------------------------------------
+	def __close (self, tcpw):
+	    # If an optional close hook was specified, call it here...
+	    if (self._hooks and self._hooks.eof):
+	    	self._hooks.eof(tcpw)
+		if tcpw.close():
+			self.__backgroundReconnectLoop(False)
 
-  _warn  : (e) -> @log_obj.warn  e
-  _info  : (e) -> @log_obj.info  e
-  _fatal : (e) -> @log_obj.fatal e
-  _debug : (e) -> @log_obj.debug e
-  _error : (e) -> @log_obj.error e
-  
-  ##-----------------------------------------
+	##-----------------------------------------
 
-  _close : (tcpw) ->
-    # If an optional close hook was specified, call it here...
-    @hooks?.eof? tcpw
-    @_reconnect false if tcpw.close()
+	def __handleError(self, e, tcpw):
+		self.__error(e)
+		self.__close(tcpw)
 
-  ##-----------------------------------------
-
-  _handle_error : (e, tcpw) ->
-    @_error e
-    @_close tcpw
-   
   ##-----------------------------------------
   
   _packetize_error : (err) ->

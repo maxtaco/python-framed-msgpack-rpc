@@ -16,6 +16,7 @@ def trim(msg):
 	i = len(msg) - 1
 	while i >= 0 and msg[i].isspace():
 		i -= 1
+	i += 1
 	if i is 0:
 		ret = None
 	else:
@@ -54,7 +55,12 @@ class Logger:
 	def output(self, msg):
 		sys.stderr.write(msg + "\n")
 
-l = Logger(prefix="droote", remote="120.2.2.2", level=Levels.WARN)
-l.warn("shit dawg!")
-l.info("ignore it!")
+
+_defaultLoggerClass = Logger
+
+def setDefaultLevel (l): Levels.DEFAULT = l
+def setDefaultLoggerClass (k): _defaultLoggerClass = k
+def newDefaultLogger (**kwargs): return _defaultLoggerClass(**kwargs)
+
+
 

@@ -2,6 +2,7 @@
 ##=======================================================================
 
 import log
+import time
 
 ##=======================================================================
 
@@ -26,37 +27,53 @@ class Flags:
 	LEVEL_3 = LEVEL_2 | ERR
 	LEVEL_4 = LEVEL_3 | RES | ARG
 
-StringFlags = {
-	"m" : Flags.METHOD,
-	"a" : Flags.REMOTE,
-	"s" : Flags.SEQID,
-	"t" : Flags.TIMESTAMP,
-	"e" : Flags.ERR,
-	"p" : Flags.ARG,
-	"r" : Flags.RES,
-	"c" : Flags.TYPE,
-	"d" : Flags.DIR,
-	"v" : Flags.VERBOSE,
-	"P" : Flags.PORT,
-	"A" : Flags.ALL,
-	"0" : Flags.LEVEL_0,
-	"1" : Flags.LEVEL_1,
-	"2" : Flags.LEVEL_2,
-	"3" : Flags.LEVEL_3,
-	"4" : Flags.LEVEL_4
-}
+	stringFlags = {
+		"m" : Flags.METHOD,
+		"a" : Flags.REMOTE,
+		"s" : Flags.SEQID,
+		"t" : Flags.TIMESTAMP,
+		"e" : Flags.ERR,
+		"p" : Flags.ARG,
+		"r" : Flags.RES,
+		"c" : Flags.TYPE,
+		"d" : Flags.DIR,
+		"v" : Flags.VERBOSE,
+		"P" : Flags.PORT,
+		"A" : Flags.ALL,
+		"0" : Flags.LEVEL_0,
+		"1" : Flags.LEVEL_1,
+		"2" : Flags.LEVEL_2,
+		"3" : Flags.LEVEL_3,
+		"4" : Flags.LEVEL_4
+	}
+
+	@classmethod
+	def fromString(klass,s):
+		s = "{0}".format(s)
+		res = 0
+		for ch in s:
+			res |= klass.stringFlags[ch]
+		return res
+
+##=======================================================================
 
 class Direction:
 	INCOMING : 1
 	OUTGOING : 2
 
+##=======================================================================
+
 def flirDir(d):
 	return (Direction.INCOMING if d is Direction.OUTGOING else Direction.OUTGOING)
+
+##=======================================================================
 
 class Type:
 	SERVER : 1
 	CLIENT_NOTIFY : 2
 	CLIENT_CALL : 3
+
+##=======================================================================
 
 F2S = {
 	Flags.DIR : {
@@ -70,9 +87,71 @@ F2S = {
 	}
 }
 
-def sflagsToFlags (s):
-	s = "{0}".format(s)
-	res = 0
-	for ch in s:
-		res |= StringFlags[ch]
-	return res
+##=======================================================================
+
+class Debugger (object):
+
+	def __init__ (self, flags, log_obj=None, log_hook=None):
+		self.flags = Flags.fromString(flags) if (type(flags) is str) else flags
+		self.log_obj = log_obj if log_obj else log.newDefaultLogger()
+		self.log_hook = log_hook if log_hook else self.log_obj.info
+
+	def newMessage(self, **kwargs):
+		return Message(kwargs, self)
+
+	def __output (self, json_msg):
+		self.log_hook(repr(json_msg))
+
+	def __skipFlag (self, f):
+		return (f & (Flags.PORT | Flags.REMOTE))
+
+	def call (self,msg):
+		new_json_msg = {}
+		V = self.flags & Flags.VERBOSE
+		if (self.flags & Flags.TIMESTAMP):
+			new_json_msg.timestamp = time.time()
+		for (key,val) in msg.toJsonObject().items():
+			uck = key.upper()
+			flag = getattr(Flags,uck)
+
+			if self.__skipFlag(flag):
+				do_copy = False
+			elif not (self.flags & flag):
+				do_copy = False
+			elif key is "arg":
+				do_copy = msg.showArg(V)
+			elif key is "res":
+				do_copy = msg.showRes(V)
+			else:
+				do_copy = True
+
+			if do_copy:
+				f2s = F2S[flag]
+				if f2s: val = f2s[val]
+				new_json_msg[key] = val
+
+		self.__output(new_json_msg)
+
+##=======================================================================
+
+class Message (object):
+	"""
+	A debug message --- a wrapper around a map object with a few
+	additional methods.
+	"""
+
+	def __init__ (self, msg={}, debugger=None):
+		self.msg = msg
+		self.debugger = debugger
+
+	def response (error, result):
+		self.msg['err'] = error
+		self.msg['res'] = result
+		self.msg['dir'] = flipDir self.msg['dir']
+		return self
+
+	def toJsonObject (self):
+		return self.msg
+
+	def call(self) :
+		self.debugger.call(self.msg)

@@ -189,7 +189,7 @@ class Dispatch (Packetizer):
 
 	##-----------------------------------------
 
-	def dispatchReset (self):	
+	def __dispatchReset (self):	
 		"""
 		Reset the dispatcher to its original state.  This cancels all outstanding
 		RPCs.

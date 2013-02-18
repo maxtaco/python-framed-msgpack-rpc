@@ -150,8 +150,31 @@ class Message (object):
 		self.msg['dir'] = flipDir self.msg['dir']
 		return self
 
-	def toJsonObject (self):
-		return self.msg
+	def toJsonObject (self): return self.msg
+	def call(self) : self.debugger.call(self.msg)
+	def set(self,k,v): self.msg[k] = v
 
-	def call(self) :
-		self.debugger.call(self.msg)
+	def isServer(self): return (self.msg.type is Type.SERVER)
+	def isClient(self): return not self.isServer()
+	def isIncoming(self): return (self.msg.dir is Direction.INCOMING)
+	def isOutgoing(self): return (self.msg.dir is Direction.OUTGOING)
+
+	def showArg (self, V):
+		return (V or (self.isServer() and self.isIncoming()) or
+				     (self.isClient() and self.isOutgoing()))
+	def showRes (self, V):
+		return (V or (self.isServer() and self.isOutgoing()) or
+				     (self.isClient() and self.isIncoming()))
+
+##=======================================================================
+
+def makeDebugger (flags, log_obj):
+	return (None if (flags is 0) else Debugger(flags = flags, log_obj = log_obj))
+
+##=======================================================================
+
+
+
+
+
+

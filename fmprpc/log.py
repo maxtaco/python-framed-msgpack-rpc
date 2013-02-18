@@ -1,7 +1,17 @@
+"""
+A centralized module for logging to different levels, and a mechanism
+to set the level appropriately.
+"""
 
 import sys
 
+
+##=======================================================================
+
 class Levels:
+	"""
+	Enumerated class for log levels. 
+	"""
 	NONE = 0 
 	DEBUG = 1
 	INFO = 2
@@ -12,18 +22,34 @@ class Levels:
 
 	DEFAULT = INFO
 
+	@classmethod
+	def setDefault(klass, l): 
+		"""
+		Set the default log level for all future Logger objects;
+		this won't retoractively affect those that are already allocated.
+		"""
+		klass.DEFAULT = l
+
+##=======================================================================
+
 def trim(msg):
+	"""
+	Trim the given message, stripping out all trailing whitespace
+	and adding a final newline in preparation for logging.
+	"""
 	i = len(msg) - 1
 	while i >= 0 and msg[i].isspace():
 		i -= 1
 	i += 1
-	if i is 0:
-		ret = None
-	else:
-		ret = msg[0:i]
-	return ret
+	return msg[0:i] + "\n"
 
-class Logger:
+##=======================================================================
+
+class Logger (object):
+	"""
+	A logger class that exposes the 'debug', 'info', 'warn',
+	'error', and 'fatal' methods for logging.
+	"""
 
 	def __init__ (self, prefix="RPC", remote="-", level=None):
 		self.prefix = prefix 
@@ -53,14 +79,15 @@ class Logger:
 			ohook(" ".join(parts))
 
 	def output(self, msg):
-		sys.stderr.write(msg + "\n")
+		sys.stderr.write(msg)
 
+##=======================================================================
 
 _defaultLoggerClass = Logger
-
-def setDefaultLevel (l): Levels.DEFAULT = l
 def setDefaultLoggerClass (k): _defaultLoggerClass = k
 def newDefaultLogger (**kwargs): return _defaultLoggerClass(**kwargs)
 
+##=======================================================================
 
-
+x = Logger()
+x.debug("hello")

@@ -28,23 +28,23 @@ class Flags:
 	LEVEL_4 = LEVEL_3 | RES | ARG
 
 	stringFlags = {
-		"m" : Flags.METHOD,
-		"a" : Flags.REMOTE,
-		"s" : Flags.SEQID,
-		"t" : Flags.TIMESTAMP,
-		"e" : Flags.ERR,
-		"p" : Flags.ARG,
-		"r" : Flags.RES,
-		"c" : Flags.TYPE,
-		"d" : Flags.DIR,
-		"v" : Flags.VERBOSE,
-		"P" : Flags.PORT,
-		"A" : Flags.ALL,
-		"0" : Flags.LEVEL_0,
-		"1" : Flags.LEVEL_1,
-		"2" : Flags.LEVEL_2,
-		"3" : Flags.LEVEL_3,
-		"4" : Flags.LEVEL_4
+		"m" : METHOD,
+		"a" : REMOTE,
+		"s" : SEQID,
+		"t" : TIMESTAMP,
+		"e" : ERR,
+		"p" : ARG,
+		"r" : RES,
+		"c" : TYPE,
+		"d" : DIR,
+		"v" : VERBOSE,
+		"P" : PORT,
+		"A" : ALL,
+		"0" : LEVEL_0,
+		"1" : LEVEL_1,
+		"2" : LEVEL_2,
+		"3" : LEVEL_3,
+		"4" : LEVEL_4
 	}
 
 	@classmethod
@@ -58,8 +58,8 @@ class Flags:
 ##=======================================================================
 
 class Direction:
-	INCOMING : 1
-	OUTGOING : 2
+	INCOMING = 1
+	OUTGOING = 2
 
 ##=======================================================================
 
@@ -69,9 +69,9 @@ def flirDir(d):
 ##=======================================================================
 
 class Type:
-	SERVER : 1
-	CLIENT_NOTIFY : 2
-	CLIENT_CALL : 3
+	SERVER = 1
+	CLIENT_NOTIFY = 2
+	CLIENT_CALL = 3
 
 ##=======================================================================
 
@@ -147,7 +147,7 @@ class Message (object):
 	def response (error, result):
 		self.msg['err'] = error
 		self.msg['res'] = result
-		self.msg['dir'] = flipDir self.msg['dir']
+		self.msg['dir'] = flipDir(self.msg['dir'])
 		return self
 
 	def toJsonObject (self): return self.msg

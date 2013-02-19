@@ -42,7 +42,7 @@ class Invocation (object):
 
 	def lock(self): self.dispatch._lock
 
-	def call (self):
+	def invoke(self):
 		d = self.dispatch
 		self.lock().acquire()
 

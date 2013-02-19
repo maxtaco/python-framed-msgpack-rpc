@@ -181,8 +181,8 @@ class Transport (dispatch.Dispatch):
 	# /Public API
 	##---------------------------------------------------
 
-	def __warn(e): self._log_obj.warn(e)
-	def __info(e): self._log_obj.info(e)
+	def __warn(e) : self._log_obj.warn(e)
+	def __info(e) : self._log_obj.info(e)
 	def __fatal(e): self._log_obj.fatal(e)
 	def __debug(e): self._log_obj.debug(e)
 	def __error(e): self._log_obj.error(e)
@@ -190,9 +190,9 @@ class Transport (dispatch.Dispatch):
 	##-----------------------------------------
 
 	def __close (self, tcpw):
-	    # If an optional close hook was specified, call it here...
-	    if (self._hooks and self._hooks.eof):
-	    	self._hooks.eof(tcpw)
+	  # If an optional close hook was specified, call it here...
+    if (self._hooks and self._hooks.eof):
+      self._hooks.eof(tcpw)
 		if tcpw.close():
 			self.__backgroundReconnectLoop(False)
 
@@ -203,47 +203,43 @@ class Transport (dispatch.Dispatch):
 		self.__close(tcpw)
 
   ##-----------------------------------------
-  
-  _packetize_error : (err) ->
+ 
+  def __packetizeError (self, err): 
     # I think we'll always have the right TCP stream here
     # if we grab the one in the this object.  A packetizer
     # error will happen before any errors in the underlying
     # stream
-    @_handle_error "In packetizer: #{err}", @_tcpw
+    self.__handleError("In packetizer: {0}".format(err), self._stream_w)
     
   ##-----------------------------------------
 
-  _handle_close : (tcpw) ->
-    @_info "EOF on transport" unless @_explicit_close
-    @_close tcpw
-    
+  def __handleClose (self, tcpw):
+    if not self._explicit_close:
+      self.__info("EOF on transport")
+      self.__close(tcpw)
+
     # for TCP connections that are children of Listeners,
     # we close the connection here and disassociate
-    @parent.close_child @ if @parent
+    if self._parent:
+      self._parent.closeChild(self)
    
   ##-----------------------------------------
-
-  # In other classes we can override this...
-  # See 'RobustTransport'
-  _reconnect : (first_time) -> null
- 
-  ##-----------------------------------------
   
-  _activate_stream : (x) ->
+  def __activateStream (self, x):
 
-    @_info "connection established"
-
+    self.__info("connection established")
 
     # The current generation needs to be wrapped into this hook;
     # this way we don't close the next generation of connection
     # in the case of a reconnect....
-    w = new StreamWrapper x, @
-    @_tcpw = w
+    w = ClearStreamWrapper(x, self)
+    self._stream_w = w
     
     # If optional hooks were specified, call them here; give as an
     # argument the new StreamWrapper so that way the subclass can
     # issue closes on the connection
-    @hooks?.connected w
+    if self._hooks and self._hooks.connected:
+      self._hooks.connected(w)
 
     #
     # MK 2012/12/20 -- Revisit me!
@@ -255,9 +251,29 @@ class Transport (dispatch.Dispatch):
     # So for now, we are going to ignore the 'end' and just act
     # on the 'close'.
     # 
-    x.on 'error', (err) => @_handle_error err, w
-    x.on 'close', ()    => @_handle_close w
-    x.on 'data',  (msg) => @packetize_data msg
+    self.__readLoop()
+
+  ##-----------------------------------------
+
+  def __readLoop (self):
+
+    self._lock.acquire()
+    go = True
+
+    w = self._stream_w
+
+    while go and w:
+      try:
+        buf = w.recv()
+        if buf:
+          self.packetizeData(buf)
+        else:
+          self.__handleClose(w)
+          go = False
+      except IOError as e:
+        self.__handleError(e, w)
+        go = False
+    self._lock.release()
 
   ##-----------------------------------------
   

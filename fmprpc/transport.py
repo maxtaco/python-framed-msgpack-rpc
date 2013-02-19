@@ -142,8 +142,7 @@ class Transport (dispatch.Dispatch):
 	def connect (self):
 		self._lock.acquire()
 		if not self.isConnected():
-			self.__connectCiriticalSection()
-			ret = self.isConnected()
+			ret = self.__connectCriticalSection()
 		else:
 			ret = True
 		self._lock.release()
@@ -276,45 +275,28 @@ class Transport (dispatch.Dispatch):
     self._lock.release()
 
   ##-----------------------------------------
-  
-  _connect_critical_section : (cb) ->
-    x = net.connect @tcp_opts
-    x.setNoDelay true unless @do_tcp_delay
 
-    # Some local switch codes....
-    [ CON, ERR, CLS ] = [0..2]
+  def __connectCriticalSection(self):
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    ok = FAlse
+    try:
+      s.connect((self.host, self.port))
+      self.__activateStream(s)
+      ok = True
+    except socket.error as e:
+      self.__warn("Error in connection to {0}: {1}"
+          .format(self._remote_str, e))
 
-    # We'll take any one of these three events...
-    rv = new iced.Rendezvous
-    x.on 'connect', rv.id(CON).defer()
-    x.on 'error',   rv.id(ERR).defer(err)
-    x.on 'close',   rv.id(CLS).defer()
-    
-    ok = false
-    await rv.wait defer rv_id
-    
-    switch rv_id
-      when CON then ok = true
-      when ERR then @_warn err
-      when CLS then @_warn "connection closed during open"
-
-    if ok
-      # Now remap the event emitters
-      @_activate_stream x
-      err = null
-    else if not err?
-      err = new Error "error in connection"
-
-    cb err
+    return ok
 
   ##-----------------------------------------
   # To fulfill the packetizer contract, the following...
   
-  _raw_write : (msg, encoding) ->
-    if not @_tcpw?
-      @_warn "write attempt with no active stream"
-    else
-      @_tcpw.write msg, encoding
+  def rawWrite (msg, encoding):
+    if not self._stream_w:
+      self.__warn("write attempt with no active stream")
+    else:
+      self._stream_w.write(msg)
  
   ##-----------------------------------------
 

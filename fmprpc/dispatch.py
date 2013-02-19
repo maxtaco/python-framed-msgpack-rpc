@@ -2,6 +2,7 @@
 import debug
 from packetizer import Packetizer
 import threading
+import types
 
 ##=======================================================================
 
@@ -61,7 +62,7 @@ class Invocation (object):
 			self.debug_msg.response(self.error, self.result).call()
 
 		self.lock().release()
-		return [ self.error, self.result ]
+		return (self.error, self.result)
 
 	def respond(self, error=None, result=None):
 		self.complete = True
@@ -92,7 +93,7 @@ class Dispatch (Packetizer):
 	def __init__ (self):
 		Packetizer.__init__(self)
 		self._invocations = {}
-		self._hooks = {}
+		self._handlers = {}
 		self._seqid = 1
 		self._dbgr = None
 		self._lock = threading.Lock()
@@ -185,7 +186,9 @@ class Dispatch (Packetizer):
 	
 	def invoke (self, program=None, method=None, arg=None, notify=False):
 		i = self.newInvocation(program=progranm, method=method, arg=arg, notify=notify)
-		return i.invoke()
+		err,res = i.invoke()
+		if err: raise err.RpcCallError(err)
+		return res
 
 	##-----------------------------------------
 
@@ -206,7 +209,7 @@ class Dispatch (Packetizer):
 		On the server, serve an incoming RPC if a hook is available for the given
 		method.
 		"""
-		hook = self.getHook(method)
+		handler = self.getHandler(method)
 
 		if self._dbgr:
 			seqid = response.seqid if reponse else None
@@ -223,19 +226,28 @@ class Dispatch (Packetizer):
 			if response:
 				response.setDebugMessage(debug_msg)
 			debug_msg.call()
-		if hook:
-			hook(method=method, arg=arg, response=response, dispatch=self)
+		if handler:
+			handler(method=method, arg=arg, response=response, dispatch=self)
 		elif response:
 			response.error("unknown method: {0}".format(method))
 
 	##-----------------------------------------
 
-	def getHook(self, method): 
+	def getHandler(self, method): 
 		"""
 		Get the serving hook for the requested method.  You can override this if 
 		you would like.
 		"""
-		return self._hooks.get(method)
+		ret = self._handlers.get(method)
+
+		# This is crazy Python magic, but it's doing something rather simple.
+		# First look at the handler we got.  If it turns out to be an unbound method,
+		# the we need to fill in the self object.  We use the current self as the
+		# self object....
+		if ret and (type(ret) is types.MethodType) and (ret.im_self is None):
+			ret = ret.__get__(self, self.__class__)
+
+		return ret
 
 	##-----------------------------------------
 
@@ -244,7 +256,7 @@ class Dispatch (Packetizer):
 		Register a handler hook to handle the given <program>.<method> RPC.
 		"""
 		method = self.__makeMethod(program, method)
-		self._hooks[method] = hook
+		self._handlers[method] = hook
 
 	##-----------------------------------------
 

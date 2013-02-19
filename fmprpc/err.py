@@ -8,4 +8,5 @@ class Error(Exception):
 
 class RingError (Error): pass
 class UnpackTypeError(Error): pass
+class RpcCallError(Error): pass
 

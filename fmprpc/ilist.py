@@ -1,6 +1,9 @@
 
 
 class Node(object):
+	"""
+	A little wrapper node for use in inserting stuff into the List below...
+	"""
 
 	def __init__(self, parent):
 		self._prev = None
@@ -55,24 +58,3 @@ class List (object):
 
 		o.setNext(None)
 		o.setPrev(None)
-
-class Number:
-	def __init__(self, i):
-		self._node = Node(self)
-		self._i = i
-	def node(self):
-		return self._node
-	def foo(self):
-		print self._i
-
-l = List()
-
-l.push(Number(3).node())
-l.push(Number(10).node())
-n = Number(341)
-l.push(n.node())
-l.push(Number(34).node())
-l.push(Number(122).node())
-l.walk(Number.foo)
-l.remove(n.node())
-l.walk(Number.foo)

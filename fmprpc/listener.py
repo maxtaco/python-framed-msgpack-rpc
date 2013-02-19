@@ -1,4 +1,3 @@
-
 import socket
 import transport
 import log
@@ -71,34 +70,35 @@ class Listener (object):
 	def setPort (self, p): self.port = p
 
 	def __bindAndListen(self, ql):
-
 		# This code taken: from http://docs.python.org/2/library/socket.html
 		# The idea is to work properly in an IPv6 environment, but only
 		# if that's preferred.
 		addrs = socket.getaddrinfo(self.host, self.port, socket.AF_UNSPEC,
-                              socket.SOCK_STREAM, 0, socket.AI_PASSIVE)
+							  socket.SOCK_STREAM, 0, socket.AI_PASSIVE)
 		for res in addres:
-		    af, socktype, proto, canonname, sa = res
-    		try:
-        		s = socket.socket(af, socktype, proto)
-		    except socket.error as msg:
-		    	s.__error("Failure in socket allocation: {0}".format(msg))
-    		    s = None
-		        continue
-		    try:
-    		    s.bind(sa)
-        		s.listen(ql)
-		    except socket.error as msg:
-		    	s.__error("Could not bind to port {0}: {1}".format(self.port, msg))
-		        s.close()
-		        s = None
-		        continue
-    		break
-    		return s
+			af, socktype, proto, canonname, sa = res
+			try:
+				s = socket.socket(af, socktype, proto)
+			except socket.error as msg:
+				self.__error("Failure in socket allocation: {0}".format(msg))
+				s = None
+			if s:
+				try:
+					s.bind(sa)
+					s.listen(ql)
+					return s
+				except socket.error as msg:
+					s.__error("Could not bind to port {0}: {1}".format(self.port, msg))
+					s.close()
+					s = None
+		return None
 
-	def listen (self):
-		# A big queue of 1000 backloggers....
-		s = self.__bindAndListen(1000)
+	def listen (self, queue_len=1000):
+		"""
+		Bind to the host/port given in the object's constructor, and set up a listen
+		queue of the given size.
+		"""
+		s = self.__bindAndListen(queue_len)
 		ok = False
 		if s:
 			ok = True
@@ -112,6 +112,11 @@ class Listener (object):
 			self.__gotNewConnection(sock, addr)
 
 	def listenRetry (self, delay):
+		"""
+		Like listen(), but keep retrying if the binding failed --- maybe
+		because another process hasn't let go of the port yet.
+		Wait delay seconds between each attempt to rebind.
+		"""
 		ok = False
 		while not ok:
 			ok = self.listen()

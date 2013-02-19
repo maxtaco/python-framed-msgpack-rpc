@@ -4,6 +4,7 @@ import dispatch
 import debug
 import threading
 import time
+import ilist
 
 ##=======================================================================
 
@@ -13,6 +14,8 @@ class ClearStreamWrapper (object):
 	no encyrption on this interface.
 	"""
 	def __init__ (self, socket, parent):
+		# Disable Nagle by default on all sockets...
+		socket.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
 		self.socket = socket
 		self.parent = parent
 		self.generation = parent.__nextGeneration()
@@ -82,9 +85,15 @@ class Transport (dispatch.Dispatch):
 		# indirection solves this.
 		self._stream_w = None
 
+		self._node = ilist.Node()
+
 		# potentially set @_tcpw to be non-null
 		if stream:
 			self.__activateStream(stream)
+
+	##-----------------------------------------
+
+	def serverListNode (self): return self._node
 
 	##-----------------------------------------
 

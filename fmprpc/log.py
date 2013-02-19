@@ -57,9 +57,9 @@ class Logger (object):
 		self.level = level if level else Levels.DEFAULT
 		self.outputHook = self.output
 
-	def set_level (self, l): self.level = l
-	def set_remote (self, r): self.remote = r
-	def set_prefix (self, p): self.prefix = p
+	def setLevel (self, l): self.level = l
+	def setRemote (self, r): self.remote = r
+	def setPrefix (self, p): self.prefix = p
 
 	def debug(self, msg): self._log(msg, Levels.DEBUG, "D")
 	def info (self, msg): self._log(msg, Levels.INFO , "I")
@@ -80,6 +80,9 @@ class Logger (object):
 
 	def output(self, msg):
 		sys.stderr.write(msg)
+
+	def makeChild(self, **kwargs):
+		return Logger(**kwargs)
 
 ##=======================================================================
 

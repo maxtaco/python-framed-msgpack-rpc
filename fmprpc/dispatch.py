@@ -3,6 +3,7 @@ import debug
 from packetizer import Packetizer
 import threading
 import types
+import err
 
 ##=======================================================================
 
@@ -30,7 +31,6 @@ class Bundle (object):
 		if self.debug_msg:
 			self.debug_msg.reply(err, res).call()
 		if self.isCall():
-			print("Calling a reply w/ {0}".format(res))
 			self.dispatch.reply(self.seqid, err, res)
 
 ##=======================================================================
@@ -68,6 +68,7 @@ class Invocation (object):
 			self.debug_msg.reply(self.error, self.result).call()
 
 		self.lock().release()
+		self.dispatch = None
 		return (self.error, self.result)
 
 	def reply(self, error=None, result=None):
@@ -205,11 +206,10 @@ class Dispatch (Packetizer):
 	##-----------------------------------------
 	
 	def invoke (self, program=None, method=None, arg=None, notify=False):
-		print("invoking {0}.{1}".format(program, method))
 		i = self.newInvocation(program=program, method=method, arg=arg, notify=notify)
-		err,res = i.invoke()
-		if err: raise err.RpcCallError(err)
-		print("Got res: {0}".format(res))
+		e,res = i.invoke()
+		self.error("Fucuciksdf {0}".format(self._handlers.keys()))
+		if e: raise err.RpcCallError(e)
 		return res
 
 	##-----------------------------------------
@@ -249,7 +249,9 @@ class Dispatch (Packetizer):
 		if handler:
 			handler(bundle)
 		elif bundle.isCall():
-			bundle.error("unknown method: {0}".format(method))
+			bundle.error("unknown method: {0}".format(bundle.method))
+			print("FUUUCUSDFK {0} {1} {2}".format(self._handlers.keys(), bundle.method, len(bundle.method)))
+			print("shit shit {0}".format(self._handlers.get(bundle.method)))
 
 	##-----------------------------------------
 
@@ -276,8 +278,8 @@ class Dispatch (Packetizer):
 		Register a handler hook to handle the given <program>.<method> RPC.
 		"""
 		method = self.makeMethod(program, method)
-		print("adding handler {0} -> {0}".format(method, hook))
 		self._handlers[method] = hook
+		print("add fucking handler {0}".format(method))
 
 	##-----------------------------------------
 

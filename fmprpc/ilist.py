@@ -1,4 +1,5 @@
 
+import weakref
 
 class Node(object):
 	"""
@@ -39,7 +40,9 @@ class List (object):
 		p = self._head
 		while p:
 			next = p.getNext()
-			fn(p.getParent())
+			o = p.getParent()
+			if o:
+				fn(o)
 			p = next
 
 	def remove(self, o):

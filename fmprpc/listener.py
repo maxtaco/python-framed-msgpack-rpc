@@ -5,6 +5,7 @@ import debug
 import ilist
 import time
 import util
+import sys
 
 ##=======================================================================
 
@@ -42,8 +43,10 @@ class Listener (object):
         transport wrapper. Virtualize this as you please. By default, it will
         use the TransportClass in the Listener Object.
         """
+
+        # Note that we don't want to start listening on the stream yet, so 
+        # we don't activate until after we install the handlers....
         x = self.TransportClass(
-            stream = c,
             remote = remote,
             parent = self,
             log_obj = self.makeNewLogObject(remote),
@@ -55,6 +58,8 @@ class Listener (object):
     def __gotNewConnection(self, c, remote):
         x = self.makeNewTransport(c, remote)
         self.gotNewConnection(x)
+        x.activateStream(c)
+        self.info("JJ rc={0}".format(sys.getrefcount(x)))
 
     def gotNewConnection(self, c):
         raise NotImplementedError("Listener::gotNewConnection is pure virtual")
@@ -67,13 +72,15 @@ class Listener (object):
 
     def close(self):
         if self._tcp_server:
-            print("closing that shit...")
-            self._tcp_server.close()
+            x = self._tcp_server
+            self._tcp_server = None
+            x.close()
 
     def setPort (self, p): self.port = p
 
     def error(self,msg): self._log_obj.error(msg)
     def warn(self,msg) : self._log_obj.warn(msg)
+    def info(self,msg) : self._log_obj.info(msg)
 
     def __bindAndListen(self, ql):
         # This code taken: from http://docs.python.org/2/library/socket.html
@@ -122,10 +129,10 @@ class Listener (object):
         while True:
             try:
                 sock, addr = self._tcp_server.accept()
-                print("done accepting.... for now....")
                 self.__gotNewConnection(sock, util.InternetAddress(tup=addr))
             except socket.error as e:
                 self.warn("Accept error: {0}".format(e))
+        self.info("Leaving listen loop")
 
     def listenRetry (self, delay, cond=None, queue_len=1000):
         """

@@ -7,19 +7,23 @@ import time
 import ilist
 import util
 import weakref
+import sys
 
 ##=======================================================================
 
 class ConstantReader (threading.Thread):
 
     def __init__ (self, transport, wrapper):
-        self.transport = transport
+        self._transport = transport
         self.wrapper = wrapper
         threading.Thread.__init__(self)
+
+    def transport(self): return self._transport()
 
     def run (self):
         go = True
         while go and self.wrapper:
+            self.transport().info("RR rc={0}".format(sys.getrefcount(self.transport())))
             op = None
             try:
                 buf = self.wrapper.recv(0x1000)
@@ -34,6 +38,7 @@ class ConstantReader (threading.Thread):
                 go = False
             if op:
                 self.transport().atomicOp(op)
+        self.transport().info("leave reader loop")
 
 ##=======================================================================
 
@@ -42,6 +47,9 @@ class ClearStreamWrapper (object):
     A shared wrapper around a socket, for which close() is idempotent. Of course,
     no encyrption on this interface.
     """
+
+    ID = 1
+
     def __init__ (self, s, transport, g):
         # Disable Nagle by default on all sockets...
         s.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
@@ -50,6 +58,8 @@ class ClearStreamWrapper (object):
         self.write_closed_warn = False
         self._reader = None
         self.transport = weakref.ref(transport)
+        self.id = ClearStreamWrapper.ID
+        ClearStreamWrapper.ID += 1
         if socket:
             self._remote = util.InternetAddress(tup=s.getpeername())
 
@@ -60,7 +70,7 @@ class ClearStreamWrapper (object):
             self._reader = ConstantReader(self.transport, self)
             self._reader.start()
 
-    def close (self):
+    def close (self, force):
         """
         Return True if we did the actual close, and false otherwise
         """
@@ -71,6 +81,8 @@ class ClearStreamWrapper (object):
             self.socket = None
             self.transport().dispatchReset()
             self.transport().packetizerReset()
+            if force:
+                x.shutdown(socket.SHUT_RDWR)
             x.close()
         return ret
 
@@ -129,11 +141,14 @@ class Transport (dispatch.Dispatch):
         self._dbgr = dbgr
         self._hooks = hooks
 
-        self._node = ilist.Node(self)
+        if self._parent:
+            self._node = ilist.Node(self)
 
         # potentially set @_tcpw to be non-null
+        self.info("A1 rc={0}".format(sys.getrefcount(self)))
         if stream:
-            self.__activateStream(stream)
+            self.activateStream(stream)
+        self.info("A2 rc={0}".format(sys.getrefcount(self)))
 
     ##-----------------------------------------
 
@@ -194,18 +209,13 @@ class Transport (dispatch.Dispatch):
     ##-----------------------------------------
 
     def connect (self):
-        print("connect... acquire lock...")
         self._lock.acquire()
-        print("connect ... acquired lock....")
         if not self.isConnected():
-            print("connect... critical section...")
             ret = self.__connectCriticalSection()
-            print("connect...finishing critical section")
         else:
             ret = True
         self._lock.release()
         if not ret:
-            print("shit dawg, neet to reconnect....")
             self.__reconnect(True)
         return ret
 
@@ -226,8 +236,7 @@ class Transport (dispatch.Dispatch):
     ##-----------------------------------------
 
     def __del__(self):
-        print("calling close...")
-        self.close()
+        self.info("calling ___del__....") 
    
     ##-----------------------------------------
 
@@ -236,11 +245,13 @@ class Transport (dispatch.Dispatch):
         Call to explicitly close this connection.  After an explicit close,
         reconnects are not attempted....
         """
+        self._lock.acquire()
         self._explicit_close = True
         if self._stream_w:
             w = self._stream_w
             self._stream_w = None
-            w.close()
+            w.close(True)
+        self._lock.release()
     #
     # /Public API
     ##---------------------------------------------------
@@ -257,8 +268,10 @@ class Transport (dispatch.Dispatch):
         # If an optional close hook was specified, call it here...
         if (self._hooks and self._hooks.eof):
             self._hooks.eof(tcpw)
-        if tcpw.close():
+        if tcpw.close(False):
             self.__reconnect(False)
+        if self._parent:
+            self._parent.closeChild(self)
 
     ##-----------------------------------------
 
@@ -293,13 +306,12 @@ class Transport (dispatch.Dispatch):
         # we close the connection here and disassociate
         if self._parent:
             self._parent.closeChild(self)
-
    
     ##-----------------------------------------
   
-    def __activateStream (self, x):
+    def activateStream (self, x):
 
-        self.info("connection established in __activateStream")
+        self.info("connection established in activateStream")
 
         # The current generation needs to be wrapped into this hook;
         # this way we don't close the next generation of connection
@@ -318,16 +330,12 @@ class Transport (dispatch.Dispatch):
 
     ##-----------------------------------------
 
-    ##-----------------------------------------
-
     def __connectCriticalSection(self):
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         ok = False
         try:
-            print("critical section .. calling connect...")
             rc = s.connect(tuple(self._remote))
-            print("critical section .. done with it! {0}".format(rc))
-            self.__activateStream(s)
+            self.activateStream(s)
             ok = True
         except socket.error as e:
             self.warn("Error in connection to {0}: {1}"

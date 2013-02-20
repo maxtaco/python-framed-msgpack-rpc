@@ -87,7 +87,6 @@ class Packetizer (object):
 		f0 = self._ring.grab(1)
 		if not f0: return self.WAIT
 
-		print("got back grab {0}".format(len(f0)))
 		frame_len = msgpackFrameLen(ord(f0))
 		if not frame_len:
 			self.packetizeError("Bad frame header received")
@@ -118,13 +117,9 @@ class Packetizer (object):
 		Internal method: get the msg part of the stream.
 		"""
 		l = self._next_msg_len
-		print("get payload...{0}".format(l))
 		if l > len(self._ring): return self.WAIT
-		print("A1")
 		buf = self._ring.grab(l)
-		print("A2")
 		if not buf: return self.WAIT
-		print("A3")
 
 		try:
 			msg = unpackType(buf, list)

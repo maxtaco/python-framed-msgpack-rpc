@@ -4,6 +4,11 @@ import unittest
 import fmprpc
 import threading
 import time
+import fmprpc.log as log
+import sys
+
+#log.Levels.setDefault(log.Levels.TOP)
+
 
 class ServerThread(threading.Thread):
 
@@ -31,7 +36,6 @@ class ServerThread(threading.Thread):
         self.launchServer()
 
     def stop(self):
-        print("Calling stop!")
         self.server.close()
 
 
@@ -49,24 +53,26 @@ class Test1(unittest.TestCase):
         t.start()
         # Wait for the thread to signal that it's ready to serve....
         c.wait()
-        print("ok, got notice!")
         c.release()
-
 
     def __simple(self):
         t = fmprpc.Transport(remote = fmprpc.InternetAddress(port = self.PORT))
-        print("connecting...")
+        print("A rc={0}".format(sys.getrefcount(t)))
         ok = t.connect()
-        print("connected....")
+        print("B rc={0}".format(sys.getrefcount(t)))
         self.assertTrue(ok)
         if ok:
             c = fmprpc.Client(t, self.PROG)
+            print("C rc={0}".format(sys.getrefcount(t)))
             arg = { "i" : 4 }
             res = c.invoke("foo",arg)
             self.assertEquals(res["y"], 6)
+            print("D rc={0}".format(sys.getrefcount(t)))
             arg = { "j" : 7, "k" : 11 }
             res = c.invoke("bar",arg)
             self.assertEquals(res["y"], 77)
+            print("rc={0}".format(sys.getrefcount(t)))
+            t.close()
 
     def test_a (self):
         self.__simple()

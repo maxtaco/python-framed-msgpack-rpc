@@ -87,16 +87,22 @@ class Packetizer (object):
 		f0 = self._ring.grab(1)
 		if not f0: return self.WAIT
 
-		frame_len = msgpackFrameLen(ord(f0))
+		# Keep in mind that grab can return 1 or more bytes, so we should
+		# handle the case when it replies with more.  It's simple, just peek
+		# at the first byte....
+		frame_len = msgpackFrameLen(ord(f0[0]))
 		if not frame_len:
 			self.packetizeError("Bad frame header received")
 			return self.ERR
 
+		# Now we know have many bytes to grab for real.  It's a function 
+		# of the first byte of the stream....
 		f_full = self._ring.grab(frame_len)
 		if not f_full: return self.WAIT
 
 		try:
 			r = unpackType(f_full, int)
+			# pull the frame out of the input stream...
 			self._ring.consume(frame_len)
 			self._next_msg_len = r
 			self._state = self.DATA

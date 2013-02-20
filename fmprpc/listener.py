@@ -67,8 +67,8 @@ class Listener (object):
 
     def close(self):
         if self._tcp_server:
+            print("closing that shit...")
             self._tcp_server.close()
-
 
     def setPort (self, p): self.port = p
 
@@ -122,6 +122,7 @@ class Listener (object):
         while True:
             try:
                 sock, addr = self._tcp_server.accept()
+                print("done accepting.... for now....")
                 self.__gotNewConnection(sock, util.InternetAddress(tup=addr))
             except socket.error as e:
                 self.warn("Accept error: {0}".format(e))

@@ -9,6 +9,7 @@ class ServerThread(threading.Thread):
 
     def __init__ (self, port, prog, cond):
         threading.Thread.__init__(self)
+        self.daemon = True
         self.port = port
         self.cond = cond
         self.prog = prog
@@ -30,9 +31,8 @@ class ServerThread(threading.Thread):
         self.launchServer()
 
     def stop(self):
+        print("Calling stop!")
         self.server.close()
-
-
 
 
 class Test1(unittest.TestCase):
@@ -64,6 +64,9 @@ class Test1(unittest.TestCase):
             arg = { "i" : 4 }
             res = c.invoke("foo",arg)
             self.assertEquals(res["y"], 6)
+            arg = { "j" : 7, "k" : 11 }
+            res = c.invoke("bar",arg)
+            self.assertEquals(res["y"], 77)
 
     def test_a (self):
         self.__simple()

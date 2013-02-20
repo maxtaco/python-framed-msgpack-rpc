@@ -80,7 +80,7 @@ class Invocation (object):
 
 	def cancel (self):
 		self.lock().acquire()
-		self.respond(error = "cancelled")
+		self.reply(error = "cancelled")
 		self.lock().release()
 
 ##=======================================================================

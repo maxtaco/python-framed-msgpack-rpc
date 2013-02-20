@@ -6,6 +6,7 @@ import threading
 import time
 import ilist
 import util
+import weakref
 
 ##=======================================================================
 
@@ -22,17 +23,17 @@ class ConstantReader (threading.Thread):
             op = None
             try:
                 buf = self.wrapper.recv(0x1000)
-                self.transport.info("Got data: {0}".format(util.formatRaw(buf)))
+                self.transport().info("Got data: {0}".format(util.formatRaw(buf)))
                 if buf:
-                    op = lambda : self.transport.packetizeData(buf)
+                    op = lambda : self.transport().packetizeData(buf)
                 else:
-                    op = lambda : self.transport.handleClose(self.wrapper)
+                    op = lambda : self.transport().handleClose(self.wrapper)
                     go = False
             except IOError as e:
-                op = lambda : self.transport.handleError(e, self.wrapper)
+                op = lambda : self.transport().handleError(e, self.wrapper)
                 go = False
             if op:
-                self.transport.atomicOp(op)
+                self.transport().atomicOp(op)
 
 ##=======================================================================
 
@@ -45,16 +46,16 @@ class ClearStreamWrapper (object):
         # Disable Nagle by default on all sockets...
         s.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
         self.socket = s
-        self.transport = transport
         self.generation = g
         self.write_closed_warn = False
         self._reader = None
+        self.transport = weakref.ref(transport)
         if socket:
             self._remote = util.InternetAddress(tup=s.getpeername())
 
     def launchReader (self):
         if self._reader:
-            self.transport.error("Refusing to launch a second reader...")
+            self.transport().error("Refusing to launch a second reader...")
         else:
             self._reader = ConstantReader(self.transport, self)
             self._reader.start()
@@ -68,8 +69,8 @@ class ClearStreamWrapper (object):
             ret = True
             x = self.socket
             self.socket = None
-            self.transport.dispatchReset()
-            self.transport.packetizerReset()
+            self.transport().dispatchReset()
+            self.transport().packetizerReset()
             x.close()
         return ret
 
@@ -79,19 +80,19 @@ class ClearStreamWrapper (object):
         until the buffer is flushed out.  Use low-level socket calls.
         """
 
-        self.transport.info("writing data: {0}".format(util.formatRaw(msg)))
+        self.transport().info("writing data: {0}".format(util.formatRaw(msg)))
         if self.socket:
             self.socket.sendall(msg)
         elif not self.write_closed_warn:
             self.write_closed_warn = True
-            self.transport.warn("write on closed socket")
+            self.transport().warn("write on closed socket")
 
     def recv(self, n):
-        self.transport.info("recv {0}".format(n))
+        self.transport().info("recv {0}".format(n))
         if self.socket:
             return self.socket.recv(n)
         else:
-            self.transport.warn("calling recv on a closed socket")
+            self.transport().warn("calling recv on a closed socket")
             return None
 
     def stream (self): return self.socket
@@ -222,6 +223,12 @@ class Transport (dispatch.Dispatch):
         if not w: w = self._stream_w
         self.__close(w)
 
+    ##-----------------------------------------
+
+    def __del__(self):
+        print("calling close...")
+        self.close()
+   
     ##-----------------------------------------
 
     def close (self):

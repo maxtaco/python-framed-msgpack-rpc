@@ -87,10 +87,8 @@ class Packetizer (object):
 		f0 = self._ring.grab(1)
 		if not f0: return self.WAIT
 
-		# Keep in mind that grab can return 1 or more bytes, so we should
-		# handle the case when it replies with more.  It's simple, just peek
-		# at the first byte....
-		frame_len = msgpackFrameLen(ord(f0[0]))
+		print("got back grab {0}".format(len(f0)))
+		frame_len = msgpackFrameLen(ord(f0))
 		if not frame_len:
 			self.packetizeError("Bad frame header received")
 			return self.ERR

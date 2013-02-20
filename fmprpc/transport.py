@@ -14,11 +14,11 @@ class ClearStreamWrapper (object):
     A shared wrapper around a socket, for which close() is idempotent. Of course,
     no encyrption on this interface.
     """
-    def __init__ (self, s, parent, g):
+    def __init__ (self, s, transport, g):
         # Disable Nagle by default on all sockets...
         s.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
         self.socket = s
-        self.parent = parent
+        self.transport = transport
         self.generation = g
         self.write_closed_warn = False
         if socket:
@@ -33,8 +33,8 @@ class ClearStreamWrapper (object):
             ret = True
             x = self.socket
             self.socket = None
-            self.parent.__dispatchReset()
-            self.parent.__packetizerReset()
+            self.transport.__dispatchReset()
+            self.transport.__packetizerReset()
             x.close()
         return ret
 
@@ -47,7 +47,15 @@ class ClearStreamWrapper (object):
             self.socket.sendall(msg)
         elif not self.write_closed_warn:
             self.write_closed_warn = True
-            self.parent._warn("write on closed socket")
+            self.transport.warn("write on closed socket")
+
+    def recv(self, n):
+        self.transport.info("recv {0}".format(n))
+        if self.socket:
+            return self.socket.recv(n)
+        else:
+            self.transport.warn("calling recv on a closed socket")
+            return None
 
     def stream (self): return self.socket
     def isConnected (self): return not not self.socket
@@ -186,11 +194,11 @@ class Transport (dispatch.Dispatch):
     # /Public API
     ##---------------------------------------------------
 
-    def __warn(self, e) : self._log_obj.warn(e)
-    def __info(self, e) : self._log_obj.info(e)
-    def __fatal(self, e): self._log_obj.fatal(e)
-    def __debug(self, e): self._log_obj.debug(e)
-    def __error(self, e): self._log_obj.error(e)
+    def warn(self, e) : self._log_obj.warn(e)
+    def info(self, e) : self._log_obj.info(e)
+    def fatal(self, e): self._log_obj.fatal(e)
+    def debug(self, e): self._log_obj.debug(e)
+    def error(self, e): self._log_obj.error(e)
   
     ##-----------------------------------------
 
@@ -204,7 +212,7 @@ class Transport (dispatch.Dispatch):
     ##-----------------------------------------
 
     def __handleError(self, e, tcpw):
-        self.__error(e)
+        self.error(e)
         self.__close(tcpw)
 
     ##-----------------------------------------
@@ -220,7 +228,7 @@ class Transport (dispatch.Dispatch):
 
     def __handleClose (self, tcpw):
         if not self._explicit_close:
-            self.__info("EOF on transport")
+            self.info("EOF on transport")
             self.__close(tcpw)
 
         # for TCP connections that are children of Listeners,
@@ -232,7 +240,7 @@ class Transport (dispatch.Dispatch):
   
     def __activateStream (self, x):
 
-        self.__info("connection established in __activateStream")
+        self.info("connection established in __activateStream")
 
         # The current generation needs to be wrapped into this hook;
         # this way we don't close the next generation of connection
@@ -262,7 +270,7 @@ class Transport (dispatch.Dispatch):
 
         while go and w:
             try:
-                buf = w.recv()
+                buf = w.recv(0x1000)
                 if buf:
                     self.packetizeData(buf)
                 else:
@@ -284,7 +292,7 @@ class Transport (dispatch.Dispatch):
             self.__activateStream(s)
             ok = True
         except socket.error as e:
-            self.__warn("Error in connection to {0}: {1}"
+            self.warn("Error in connection to {0}: {1}"
                 .format(str(self._remote), e))
         return ok
 
@@ -293,7 +301,7 @@ class Transport (dispatch.Dispatch):
   
     def rawWrite (msg, encoding):
         if not self._stream_w:
-            self.__warn("write attempt with no active stream")
+            self.warn("write attempt with no active stream")
         else:
             self._stream_w.write(msg)
  
@@ -363,7 +371,7 @@ class RobustTransport (Transport):
             if self.isConnected() or self._explicit_close:
                 go = False
             else:
-                self.__info("{0}connecting (attempt {1})".format(prfx, i))
+                self.info("{0}connecting (attempt {1})".format(prfx, i))
                 ok = self.__connectCriticalSection()
                 if ok:
                     go = False
@@ -372,7 +380,7 @@ class RobustTransport (Transport):
 
         if self.isConnected():
             s = "" if (i is 1) else "s"
-            self.__warn("{0}connected after {1} attempt{2}".format(prfx, i, s))   
+            self.warn("{0}connected after {1} attempt{2}".format(prfx, i, s))   
             self.__pokeQueue()
 
         self._lock.release()
@@ -388,7 +396,7 @@ class RobustTransport (Transport):
 
         def __do_timeout():
             if inv:
-                self.__error("RPC call to '{0}' is taking > {1}s".format(m, eth))
+                self.error("RPC call to '{0}' is taking > {1}s".format(m, eth))
                 timer = None
 
         if eth:
@@ -399,8 +407,8 @@ class RobustTransport (Transport):
         ret = inv.call()
         dur = time.time() - start
 
-        if eth and eth <= dur: fn = self.__error
-        elif wth and wth <= dur: fn = self.__warn
+        if eth and eth <= dur: fn = self.error
+        elif wth and wth <= dur: fn = self.warn
         else: fn = None
 
         if fn:
@@ -434,12 +442,12 @@ class RobustTransport (Transport):
                 else:
                     ret = Transport.invoke(self, **kwargs)
             elif self._explicit_close:
-                self.__warn("Invoked call to '{0}' after explicit close".format(meth))
+                self.warn("Invoked call to '{0}' after explicit close".format(meth))
             elif self._n_waiters < self._queue_max:
                 self.__waitInQueue()
                 go = True
             else:
-                self.__warn("Queue overflow at '{0}'".format(meth))
+                self.warn("Queue overflow at '{0}'".format(meth))
         return ret
   
 ##=======================================================================

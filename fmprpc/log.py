@@ -80,8 +80,10 @@ class Logger (object):
 	def output(self, msg):
 		sys.stderr.write(msg)
 
-	def makeChild(self, **kwargs):
-		return Logger(**kwargs)
+	def makeChild(self, remote=None):
+		return Logger(prefix=self.prefix, 
+					  remote = remote if remote else self.remote,
+					  level = self.level)
 
 ##=======================================================================
 

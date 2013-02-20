@@ -121,7 +121,7 @@ class Dispatch (Packetizer):
 
 		self._lock.acquire()
 		if len(msg) < 2:
-			self.__warn("Bad input packet: len={0}".format(len(msg)))
+			self.warn("Bad input packet: len={0}".format(len(msg)))
 		else:
 			typ = msg.pop(0)
 			if typ is self.INVOKE:
@@ -135,7 +135,7 @@ class Dispatch (Packetizer):
 				[ seqid, error, result ] = msg
 				self.__awaken(seqid = seqid, error = error, result = result)
 			else:
-				self.__warn("Unknown message type: {0}".format(typ))
+				self.warn("Unknown message type: {0}".format(typ))
 		self._lock.release()
 
 
@@ -146,7 +146,7 @@ class Dispatch (Packetizer):
 			i = self._invocations[seqid]
 			w.respond(error, result)
 		except KeyError:
-			self.__warn("Unknow seqid in awaken: {0}".format(seqid))
+			self.warn("Unknow seqid in awaken: {0}".format(seqid))
 
 	##-----------------------------------------
 

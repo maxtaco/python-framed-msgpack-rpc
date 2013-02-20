@@ -4,6 +4,7 @@ import log
 import debug
 import ilist
 import time
+import util
 
 ##=======================================================================
 
@@ -59,7 +60,7 @@ class Listener (object):
         raise NotImplementedError("Listener::gotNewConnection is pure virtual")
 
     def makeNewLogObject (self, remote):
-        return self._log_obj.makeChild(prefix = "RPC", remote=remote)
+        return self._log_obj.makeChild(remote=remote)
 
     def closeChild (self, c):
         self._children.remove(c.serverListNode())
@@ -71,8 +72,8 @@ class Listener (object):
 
     def setPort (self, p): self.port = p
 
-    def __error(self,msg): self._log_obj.error(msg)
-    def __warn(self,msg) : self._log_obj.warn(msg)
+    def error(self,msg): self._log_obj.error(msg)
+    def warn(self,msg) : self._log_obj.warn(msg)
 
     def __bindAndListen(self, ql):
         # This code taken: from http://docs.python.org/2/library/socket.html
@@ -86,7 +87,7 @@ class Listener (object):
             try:
                 s = socket.socket(af, socktype, proto)
             except socket.error as msg:
-                self.__error("Failure in socket allocation: {0}".format(msg))
+                self.error("Failure in socket allocation: {0}".format(msg))
                 s = None
             if s:
                 try:
@@ -94,7 +95,7 @@ class Listener (object):
                     s.listen(ql)
                     return s
                 except socket.error as msg:
-                    self.__error("Could not bind to address {0}: {1}"
+                    self.error("Could not bind to address {0}: {1}"
                                   .format(str(self.bindto), msg))
                     s.close()
                     s = None
@@ -121,9 +122,9 @@ class Listener (object):
         while True:
             try:
                 sock, addr = self._tcp_server.accept()
-                self.__gotNewConnection(sock, addr)
+                self.__gotNewConnection(sock, util.InternetAddress(tup=addr))
             except socket.error as e:
-                self.__warn("Accept error: {0}".format(e))
+                self.warn("Accept error: {0}".format(e))
 
     def listenRetry (self, delay, cond=None, queue_len=1000):
         """

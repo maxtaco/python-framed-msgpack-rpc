@@ -26,8 +26,7 @@ class ServerThread(threading.Thread):
         return s.listen(self.cond)
 
     def run(self):
-        if not self.launchServer():
-            self.exit()
+        self.launchServer()
 
     def stop(self):
         self.server.close()
@@ -37,7 +36,7 @@ class ServerThread(threading.Thread):
 
 class Test1(unittest.TestCase):
 
-    PORT = 50004
+    PORT = 50006
     PROG = "P.1"
 
     @classmethod 

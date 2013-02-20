@@ -5,7 +5,6 @@ to set the level appropriately.
 
 import sys
 
-
 ##=======================================================================
 
 class Levels:
@@ -51,7 +50,7 @@ class Logger (object):
 	'error', and 'fatal' methods for logging.
 	"""
 
-	def __init__ (self, prefix="RPC", remote="-", level=None):
+	def __init__ (self, prefix="RPC", remote=None, level=None):
 		self.prefix = prefix 
 		self.remote = remote
 		self.level = level if level else Levels.DEFAULT
@@ -73,7 +72,7 @@ class Logger (object):
 			parts = []
 			if self.prefix: parts.append(self.prefix)
 			if display    :       parts.append("[{0}]".format(display))
-			if self.remote: parts.append(self.remote)
+			if self.remote: parts.append(str(self.remote))
 			if msg:         parts.append(msg)
 			if not ohook:   ohook = self.outputHook
 			ohook(" ".join(parts))

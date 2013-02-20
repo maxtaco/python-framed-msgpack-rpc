@@ -36,8 +36,9 @@ class Server (listener.Listener):
 	#-----------------------------------------
 
 	def __init__ (self, **kwargs):
+		self._programs = kwargs["programs"]
+		del kwargs["programs"]
 		listener.Listener.__init__ (self, **kwargs)
-		self._programs = kwargs['programs']
 
 	#-----------------------------------------
 
@@ -58,8 +59,9 @@ class SimpleServer (listener.Listener):
 	"""
 
 	def __init__ (self, **kwargs):
-		listener.Listener.__init__ (self, **kwargs)
 		self._program = kwargs['program']
+		del kwargs['programs']
+		listener.Listener.__init__ (self, **kwargs)
 
 	def gotNewConnection (self, c):
 		# Note that we'll be fetching **bound** hooks from the self object,

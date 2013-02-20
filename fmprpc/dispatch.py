@@ -6,26 +6,32 @@ import types
 
 ##=======================================================================
 
-class Response (object):
+class Bundle (object):
 	"""
 	An object that is good for just one RPC response on the server-side
 	"""
 
-	def __init__ (self, dispatch, seqid):
+	def __init__ (self, dispatch, seqid=None, arg={}, method=None):
 		self.dispatch = dispatch
 		self.seqid = seqid
+		self.method = method
+		self.arg = arg
 		self.debug_msg = None
 
-	def result (self, res): self.__reply(None, res)
-	def error  (self, err): self.__reply(err, None)
+	def reply(self, res): self.__reply(None, res)
+	def error(self, err): self.__reply(err, None)
 
 	def setDebugMessage(dm):
 		self.debug_msg = dm
 
+	def isCall(self): return not not self.seqid
+
 	def __reply(self, err, res):
 		if self.debug_msg:
-			self.debug_msg.response(err, res).call()
-		self.dispatch.respond(err, res)
+			self.debug_msg.reply(err, res).call()
+		if self.isCall():
+			print("Calling a reply w/ {0}".format(res))
+			self.dispatch.reply(self.seqid, err, res)
 
 ##=======================================================================
 
@@ -41,7 +47,7 @@ class Invocation (object):
 		self.error = None
 		self.complete = False
 
-	def lock(self): self.dispatch._lock
+	def lock(self): return self.dispatch._lock
 
 	def invoke(self):
 		d = self.dispatch
@@ -49,7 +55,7 @@ class Invocation (object):
 
 		if self.debug_msg: self.debug_msg.call()
 
-		d.send(msg)
+		d.send(self.msg)
 
 		if not self.notify:
 			d._invocations[self.seqid] = self
@@ -59,15 +65,15 @@ class Invocation (object):
 			del d._invocations[self.seqid]
 
 		if self.debug_msg:
-			self.debug_msg.response(self.error, self.result).call()
+			self.debug_msg.reply(self.error, self.result).call()
 
 		self.lock().release()
 		return (self.error, self.result)
 
-	def respond(self, error=None, result=None):
+	def reply(self, error=None, result=None):
 		self.complete = True
 		self.error = error
-		self.resiult = result
+		self.result = result
 		self.condition.notify()
 
 	##-----------------------------------------
@@ -85,7 +91,7 @@ class Dispatch (Packetizer):
 	"""
 
 	INVOKE = 0
-	RESPONSE = 1
+	REPLY = 1
 	NOTIFY = 2
 
 	##-----------------------------------------
@@ -96,7 +102,7 @@ class Dispatch (Packetizer):
 		self._handlers = {}
 		self._seqid = 1
 		self._dbgr = None
-		self._lock = threading.Lock()
+		self._lock = threading.RLock()
 
 	##-----------------------------------------
 
@@ -117,47 +123,59 @@ class Dispatch (Packetizer):
 		an Invocation, Notifcation, or Response, it will be routed in the appropriate
 		direction.  In the first two cases, we call down to a subclass for the `serve`
 		method.
+
+		Note that we don't guard this method with a lock, since it's assumed we'll be
+		calling from packetizeData, which is called from the transport while holding 
+		the lock.
 		"""
 
-		self._lock.acquire()
 		if len(msg) < 2:
 			self.warn("Bad input packet: len={0}".format(len(msg)))
 		else:
 			typ = msg.pop(0)
 			if typ is self.INVOKE:
 				[ seqid, method, arg ] = msg
-				response = Response(self, seqid)
-				self.__serve (method = method, arg = arg, response = resposne)
+				bundle = Bundle (dispatch = self, seqid = seqid, arg = arg, method = method)
+				self.__serve (bundle)
 			elif typ is self.NOTIFY:
-				[ method, param ] = msg
-				self.__serve (method = method, arg = arg)
-			elif typ is self.RESPONSE:
+				[ method, arg ] = msg
+				bundle = Bundle (dispatch = self, arg = arg, method = method)
+				self.__serve (bundle)
+			elif typ is self.REPLY:
 				[ seqid, error, result ] = msg
 				self.__awaken(seqid = seqid, error = error, result = result)
 			else:
 				self.warn("Unknown message type: {0}".format(typ))
-		self._lock.release()
 
+	##-----------------------------------------
+
+	def reply(self, seqid, err, res):
+		"""
+		For the RPC with the given seqid, respond with the (err,res) pair.
+		"""
+		msg = [ self.REPLY, seqid, err, res ]
+		self._lock.acquire()
+		self.send(msg)
+		self._lock.release()
 
 	##-----------------------------------------
 
 	def __awaken (self, seqid, error = None, result = None):
 		try:
-			i = self._invocations[seqid]
-			w.respond(error, result)
+			self._invocations[seqid].reply(error, result)
 		except KeyError:
 			self.warn("Unknow seqid in awaken: {0}".format(seqid))
 
 	##-----------------------------------------
 
-	def __makeMethod (self, prog, meth):
-		".".join([ prog, meth ]) if prog else meth
+	def makeMethod (self, prog, meth):
+		return ".".join([ prog, meth ]) if prog else meth
 
 	##-----------------------------------------
 	
 	def newInvocation(self, program=None, method=None, arg=None, notify=False):
 
-		method = self.__makeMethod(program, method)
+		method = self.makeMethod(program, method)
 		seqid = self.__nextSeqid()
 
 		if notify:
@@ -165,7 +183,7 @@ class Dispatch (Packetizer):
 			dtyp = debug.Type.CLIENT_NOTIFY
 		else:
 			typ = self.INVOKE
-			dtyp = debug.Type.CLIENT_INVOKE
+			dtyp = debug.Type.CLIENT_CALL
 
 		msg = [ typ, seqid, method, arg ]
 
@@ -179,20 +197,24 @@ class Dispatch (Packetizer):
 					port = self.remotePort(),
 					typ = dtyp
 				)
+		else:
+			debug_msg = None
 
 		return Invocation(self, seqid, msg, debug_msg, notify)
 
 	##-----------------------------------------
 	
 	def invoke (self, program=None, method=None, arg=None, notify=False):
-		i = self.newInvocation(program=progranm, method=method, arg=arg, notify=notify)
+		print("invoking {0}.{1}".format(program, method))
+		i = self.newInvocation(program=program, method=method, arg=arg, notify=notify)
 		err,res = i.invoke()
 		if err: raise err.RpcCallError(err)
+		print("Got res: {0}".format(res))
 		return res
 
 	##-----------------------------------------
 
-	def __dispatchReset (self):	
+	def dispatchReset (self):	
 		"""
 		Reset the dispatcher to its original state.  This cancels all outstanding
 		RPCs.
@@ -204,32 +226,30 @@ class Dispatch (Packetizer):
 
 	##-----------------------------------------
 
-	def __serve(self, method, arg, response = None):
+	def __serve(self, bundle):
 		"""
 		On the server, serve an incoming RPC if a hook is available for the given
 		method.
 		"""
-		handler = self.getHandler(method)
+		handler = self.getHandler(bundle.method)
 
 		if self._dbgr:
-			seqid = response.seqid if reponse else None
 			debug_msg = self._dbgr.newMessage(
-				method = method,
-				seqid = seqid,
-				arg = arg,
+				method = bundle.method,
+				seqid = bundle.seqid,
+				arg = bundle.arg,
 				dir = debug.Direction.INCOMING,
 				remote = self.remoteAddress(),
 				port = self.remotePort(),
 				typ = debug.Type.SERVER,
-				error = None if hook else "unknown method"
+				err = None if handler else "unknown method"
 				)
-			if response:
-				response.setDebugMessage(debug_msg)
+			bundle.setDebugMessage(debug_msg)
 			debug_msg.call()
 		if handler:
-			handler(method=method, arg=arg, response=response, dispatch=self)
-		elif response:
-			response.error("unknown method: {0}".format(method))
+			handler(bundle)
+		elif bundle.isCall():
+			bundle.error("unknown method: {0}".format(method))
 
 	##-----------------------------------------
 
@@ -255,7 +275,8 @@ class Dispatch (Packetizer):
 		"""
 		Register a handler hook to handle the given <program>.<method> RPC.
 		"""
-		method = self.__makeMethod(program, method)
+		method = self.makeMethod(program, method)
+		print("adding handler {0} -> {0}".format(method, hook))
 		self._handlers[method] = hook
 
 	##-----------------------------------------

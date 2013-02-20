@@ -7,9 +7,9 @@ class Client (object):
 		self._program = program
 
 	def invoke (self, method, arg):
-		return self._transport.invoke(program=self.program, 
+		return self._transport.invoke(program=self._program, 
 			method=method, arg=arg, notify=False)
 
 	def notify (self, method, arg):
-		return self._transport.invoke(program=self.program, 
+		return self._transport.invoke(program=self._program, 
 			method=method, arg=arg, notify=True)

@@ -144,9 +144,9 @@ class Message (object):
 		self.msg = msg
 		self.debugger = debugger
 
-	def response (error, result):
-		self.msg['err'] = error
-		self.msg['res'] = result
+	def reply(self, err, res):
+		self.msg['err'] = err
+		self.msg['res'] = res
 		self.msg['dir'] = flipDir(self.msg['dir'])
 		return self
 

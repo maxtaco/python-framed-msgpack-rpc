@@ -39,3 +39,8 @@ class ClosedServerAddress (InternetAddress):
     def __init__(self, **kwargs):
         kwargs['defhost'] = "127.0.0.1"
         InternetAddress.__init__(self, **kwargs)
+
+def formatRaw(buf):
+    if buf is None:
+        buf = ""
+    return "Raw(" + ", ".join([ "{0:02x}".format(ord(c)) for c in buf]) + ")"

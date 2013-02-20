@@ -9,6 +9,33 @@ import util
 
 ##=======================================================================
 
+class ConstantReader (threading.Thread):
+
+    def __init__ (self, transport, wrapper):
+        self.transport = transport
+        self.wrapper = wrapper
+        threading.Thread.__init__(self)
+
+    def run (self):
+        go = True
+        while go and self.wrapper:
+            op = None
+            try:
+                buf = self.wrapper.recv(0x1000)
+                self.transport.info("Got data: {0}".format(util.formatRaw(buf)))
+                if buf:
+                    op = lambda : self.transport.packetizeData(buf)
+                else:
+                    op = lambda : self.transport.handleClose(self.wrapper)
+                    go = False
+            except IOError as e:
+                op = lambda : self.transport.handleError(e, self.wrapper)
+                go = False
+            if op:
+                self.transport.atomicOp(op)
+
+##=======================================================================
+
 class ClearStreamWrapper (object):
     """
     A shared wrapper around a socket, for which close() is idempotent. Of course,
@@ -21,8 +48,16 @@ class ClearStreamWrapper (object):
         self.transport = transport
         self.generation = g
         self.write_closed_warn = False
+        self._reader = None
         if socket:
             self._remote = util.InternetAddress(tup=s.getpeername())
+
+    def launchReader (self):
+        if self._reader:
+            self.transport.error("Refusing to launch a second reader...")
+        else:
+            self._reader = ConstantReader(self.transport, self)
+            self._reader.start()
 
     def close (self):
         """
@@ -33,8 +68,8 @@ class ClearStreamWrapper (object):
             ret = True
             x = self.socket
             self.socket = None
-            self.transport.__dispatchReset()
-            self.transport.__packetizerReset()
+            self.transport.dispatchReset()
+            self.transport.packetizerReset()
             x.close()
         return ret
 
@@ -43,6 +78,8 @@ class ClearStreamWrapper (object):
         Write the message to the socket, calling send(2) repeatedly
         until the buffer is flushed out.  Use low-level socket calls.
         """
+
+        self.transport.info("writing data: {0}".format(util.formatRaw(msg)))
         if self.socket:
             self.socket.sendall(msg)
         elif not self.write_closed_warn:
@@ -71,6 +108,8 @@ class Transport (dispatch.Dispatch):
                   stream=None, log_obj=None, parent=None,
                   hooks={}, dbgr=None):
 
+        dispatch.Dispatch.__init__(self)
+
         # We don't store the TCP stream directly, but rather, sadly,
         # a **wrapper** around the TCP stream.  This is to make stream
         # closes idempotent. The case we want to avoid is two closes
@@ -82,13 +121,13 @@ class Transport (dispatch.Dispatch):
         self._remote = remote
         self._tcp_opts = tcp_opts
         self._explicit_close = False
+        self._parent = parent
 
         self.setLogger(log_obj)
         self._generation = 1
-        self._lock = threading.Lock()
         self._dbgr = dbgr
         self._hooks = hooks
-    
+
         self._node = ilist.Node(self)
 
         # potentially set @_tcpw to be non-null
@@ -154,13 +193,18 @@ class Transport (dispatch.Dispatch):
     ##-----------------------------------------
 
     def connect (self):
+        print("connect... acquire lock...")
         self._lock.acquire()
+        print("connect ... acquired lock....")
         if not self.isConnected():
+            print("connect... critical section...")
             ret = self.__connectCriticalSection()
+            print("connect...finishing critical section")
         else:
             ret = True
         self._lock.release()
         if not ret:
+            print("shit dawg, neet to reconnect....")
             self.__reconnect(True)
         return ret
 
@@ -211,22 +255,29 @@ class Transport (dispatch.Dispatch):
 
     ##-----------------------------------------
 
-    def __handleError(self, e, tcpw):
+    def atomicOp(self,op):
+        self._lock.acquire()
+        op()
+        self._lock.release()
+   
+    ##-----------------------------------------
+
+    def handleError(self, e, tcpw):
         self.error(e)
         self.__close(tcpw)
 
     ##-----------------------------------------
  
-    def __packetizeError (self, err): 
+    def packetizeError (self, err): 
         # I think we'll always have the right TCP stream here
         # if we grab the one in the this object.  A packetizer
         # error will happen before any errors in the underlying
         # stream
-        self.__handleError("In packetizer: {0}".format(err), self._stream_w)
+        self.handleError("In packetizer: {0}".format(err), self._stream_w)
     
     ##-----------------------------------------
 
-    def __handleClose (self, tcpw):
+    def handleClose (self, tcpw):
         if not self._explicit_close:
             self.info("EOF on transport")
             self.__close(tcpw)
@@ -235,6 +286,7 @@ class Transport (dispatch.Dispatch):
         # we close the connection here and disassociate
         if self._parent:
             self._parent.closeChild(self)
+
    
     ##-----------------------------------------
   
@@ -254,33 +306,10 @@ class Transport (dispatch.Dispatch):
         if self._hooks and self._hooks.connected:
             self._hooks.connected(w)
 
-        self.__readLoop()
+        # Launch a reader thread
+        w.launchReader()
 
     ##-----------------------------------------
-
-    def __readLoop (self):
-        """
-        Keep reading from a stream until there is an EOF or an error.
-        """
-
-        self._lock.acquire()
-        go = True
-
-        w = self._stream_w
-
-        while go and w:
-            try:
-                buf = w.recv(0x1000)
-                if buf:
-                    self.packetizeData(buf)
-                else:
-                    self.__handleClose(w)
-                    go = False
-            except IOError as e:
-                self.__handleError(e, w)
-                go = False
-
-        self._lock.release()
 
     ##-----------------------------------------
 
@@ -288,7 +317,9 @@ class Transport (dispatch.Dispatch):
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         ok = False
         try:
-            s.connect(tuple(self._remote))
+            print("critical section .. calling connect...")
+            rc = s.connect(tuple(self._remote))
+            print("critical section .. done with it! {0}".format(rc))
             self.__activateStream(s)
             ok = True
         except socket.error as e:
@@ -299,7 +330,7 @@ class Transport (dispatch.Dispatch):
     ##-----------------------------------------
     # To fulfill the packetizer contract, the following...
   
-    def rawWrite (msg, encoding):
+    def rawWrite (self, msg):
         if not self._stream_w:
             self.warn("write attempt with no active stream")
         else:

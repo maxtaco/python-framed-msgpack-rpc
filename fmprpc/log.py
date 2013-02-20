@@ -36,6 +36,7 @@ def trim(msg):
 	Trim the given message, stripping out all trailing whitespace
 	and adding a final newline in preparation for logging.
 	"""
+	msg = str(msg)
 	i = len(msg) - 1
 	while i >= 0 and msg[i].isspace():
 		i -= 1

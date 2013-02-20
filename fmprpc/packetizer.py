@@ -16,7 +16,7 @@ def unpackType(buf, typ):
 
 ##=======================================================================
 
-def __msgpackFrameLen (byt) :
+def msgpackFrameLen (byt) :
 	"""
 	This is a hack of sorts. Given the leading byte of a frame header is,
 	output the length of the frame header
@@ -87,7 +87,7 @@ class Packetizer (object):
 		f0 = self._ring.grab(1)
 		if not f0: return self.WAIT
 
-		frame_len = __msgpackFrameLen(f0)
+		frame_len = msgpackFrameLen(ord(f0))
 		if not frame_len:
 			self.packetizeError("Bad frame header received")
 			return self.ERR
@@ -114,9 +114,13 @@ class Packetizer (object):
 		Internal method: get the msg part of the stream.
 		"""
 		l = self._next_msg_len
+		print("get payload...{0}".format(l))
 		if l > len(self._ring): return self.WAIT
+		print("A1")
 		buf = self._ring.grab(l)
+		print("A2")
 		if not buf: return self.WAIT
+		print("A3")
 
 		try:
 			msg = unpackType(buf, list)
@@ -151,7 +155,7 @@ class Packetizer (object):
 
 	#-------------------------------
 
-	def packerizerReset(self):
+	def packetizerReset(self):
 		"""
 		To be called on an error; flush out the packetizer and return it
 		to its normal state.

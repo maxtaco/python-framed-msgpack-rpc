@@ -72,7 +72,7 @@ class Logger (object):
             msg = trim(msg)
             parts = []
             if self.prefix: parts.append(self.prefix)
-            if display    :       parts.append("[{0}]".format(display))
+            if display    : parts.append("[{0}]".format(display))
             if self.remote: parts.append(str(self.remote))
             if msg:         parts.append(msg)
             if not ohook:   ohook = self.outputHook

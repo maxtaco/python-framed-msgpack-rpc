@@ -15,7 +15,7 @@ def collectHooks(obj):
 		m = rxx.match(d)
 		val = getattr(obj, d)
 		if m and callable(val):
-			hooks[m.groups(1)] = val
+			hooks[m.group(1)] = val
 	return hooks
 
 ##=======================================================================
@@ -102,14 +102,15 @@ class ContextualServer (listener.Listener):
 	"""
 
 	def __init__ (self, **kwargs):
-		listener.Listener.__init__(self, **kwargs)
 		self._classes = kwargs["classes"]
+		del kwargs["classes"]
+		listener.Listener.__init__(self, **kwargs)
 
 	def gotNewConnection(self, c):
 		for (key, klass) in self._classes.items():
 			context = klass (transport = c, server = self)
 			# Insert mappings for this program to the 
 			# bound h_* hooks of the new context
-			self.addProgram(key, collectHooks(context))
+			c.addProgram(key, collectHooks(context))
 
 ##=======================================================================

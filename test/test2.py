@@ -1,3 +1,4 @@
+
 import sys
 sys.path.append("../")
 import unittest
@@ -5,51 +6,49 @@ import fmprpc
 import threading
 import time
 import fmprpc.log as log
+import fmprpc.server as server
+import fmprpc.err as err
 
-log.Levels.setDefault(log.Levels.WARN)
+
+class P_v1 (server.Handler):
+    def h_foo (self, b):
+        b.reply({ "y" : b.arg["i"] + 2 })
+    def h_bar (self, b):
+        b.reply({ "y" : b.arg["j"] * b.arg["k"]})
 
 class ServerThread(threading.Thread):
-
     def __init__ (self, port, prog, cond):
         threading.Thread.__init__(self)
+        bindto = fmprpc.OpenServerAddress(port = port)
+        self.srv = server.ContextualServer(
+            bindto = bindto,
+            classes = { prog : P_v1 }
+        )
         self.daemon = True
-        self.port = port
         self.cond = cond
-        self.prog = prog
-
-    def launchServer(self):
-        s = fmprpc.Server(
-            bindto = fmprpc.OpenServerAddress(port = self.port),
-            programs = {
-                self.prog : {
-                    "foo" : lambda b: b.reply({ "y" : b.arg["i"] + 2 }),
-                    "bar" : lambda b: b.reply({ "y" : b.arg["j"] * b.arg["k"] })
-                }
-
-            })
-        self.server = s
-        return s.listen(self.cond)
 
     def run(self):
-        self.launchServer()
+        self.srv.listen(self.cond)
 
     def stop(self):
-        self.server.close()
+        self.srv.close()
 
+class Test2(unittest.TestCase):
 
-class Test1(unittest.TestCase):
-
-    PORT = 50000 + (int(time.time()) % 1000)
+    PORT = 50001 + (int(time.time()) % 1000)
     PROG = "P.1"
 
-    @classmethod 
+    @classmethod
     def setUpClass(klass):
+        klass.startServer()
+
+    @classmethod
+    def startServer(klass):
         c = threading.Condition()
         c.acquire()
         t = ServerThread(klass.PORT, klass.PROG, c)
         klass.server_thread = t
         t.start()
-        # Wait for the thread to signal that it's ready to serve....
         c.wait()
         c.release()
 
@@ -60,15 +59,21 @@ class Test1(unittest.TestCase):
         if ok:
             c = fmprpc.Client(t, self.PROG)
             arg = { "i" : 4 }
-            res = c.invoke("foo",arg)
+            res = c.invoke("foo", arg)
             self.assertEquals(res["y"], 6)
             arg = { "j" : 7, "k" : 11 }
-            res = c.invoke("bar",arg)
+            res = c.invoke("bar", arg)
             self.assertEquals(res["y"], 77)
+            bad = "XXyyXX"
+            try:
+                res = c.invoke(bad, arg)
+                self.assertTrue(False)
+            except err.RpcCallError as e:
+                self.assertTrue(str(e).find("unknown method") >= 0)
+                self.assertTrue(str(e).find(bad) >= 0)
 
     def test_a (self):
         self.__simple()
-
     def test_b (self):
         self.__simple()
 

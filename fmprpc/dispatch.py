@@ -250,8 +250,6 @@ class Dispatch (Packetizer):
 			handler(bundle)
 		elif bundle.isCall():
 			bundle.error("unknown method: {0}".format(bundle.method))
-			print("FUUUCUSDFK {0} {1} {2}".format(self._handlers.keys(), bundle.method, len(bundle.method)))
-			print("shit shit {0}".format(self._handlers.get(bundle.method)))
 
 	##-----------------------------------------
 
@@ -279,7 +277,6 @@ class Dispatch (Packetizer):
 		"""
 		method = self.makeMethod(program, method)
 		self._handlers[method] = hook
-		print("add fucking handler {0}".format(method))
 
 	##-----------------------------------------
 

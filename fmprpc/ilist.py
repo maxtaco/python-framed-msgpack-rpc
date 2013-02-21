@@ -46,7 +46,6 @@ class List (object):
 			p = next
 
 	def remove(self, o):
-		print("ilist remove!")
 		next = o.getNext()
 		prev = o.getPrev()
 

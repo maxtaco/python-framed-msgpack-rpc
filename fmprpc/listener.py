@@ -59,7 +59,6 @@ class Listener (object):
         x = self.makeNewTransport(c, remote)
         self.gotNewConnection(x)
         x.activateStream(c)
-        self.info("JJ rc={0}".format(sys.getrefcount(x)))
 
     def gotNewConnection(self, c):
         raise NotImplementedError("Listener::gotNewConnection is pure virtual")

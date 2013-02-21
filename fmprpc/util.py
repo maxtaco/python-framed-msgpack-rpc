@@ -43,4 +43,4 @@ class ClosedServerAddress (InternetAddress):
 def formatRaw(buf):
     if buf is None:
         buf = ""
-    return "Raw(" + ", ".join([ "{0:02x}".format(ord(c)) for c in buf]) + ")"
+    return "Raw(" + " ".join([ "{0:02x}".format(ord(c)) for c in buf]) + ")"

@@ -12,20 +12,14 @@ import sys
 ##=======================================================================
 
 class TransportRef (object):
-    def __init__ (self, transport, weak):
-        if weak: 
-            self._wr = weakref.ref(transport)
-            self._sr = None
-        else:
-            self._sr = transport
-            self._wr = None
+    def __init__ (self, transport):
+        self._wr = weakref.ref(transport)
 
     def __call__(self):
-        if self._wr: return self._wr()
-        else:        return self._sr
+        return self._wr()
 
     def clear(self):
-        self._sr = None
+        pass
 
 ##=======================================================================
 
@@ -137,9 +131,15 @@ class ClearStreamWrapper (object):
 
 class Transport (dispatch.Dispatch):
 
+    # A transport functions slightly differently if it's on behalf of a client
+    # or a server.  If it's on behalf of a client, then 
+    NONE = 0
+    SERVER = 1
+    CLIENT = 2
+
     def __init__ (self, remote=None, tcp_opts={}, 
                   stream=None, log_obj=None, parent=None,
-                  hooks={}, dbgr=None):
+                  hooks={}, dbgr=None, mode=NONE):
 
         dispatch.Dispatch.__init__(self)
 
@@ -160,6 +160,8 @@ class Transport (dispatch.Dispatch):
         self._generation = 1
         self._dbgr = dbgr
         self._hooks = hooks
+        self._mode = mode
+
 
         # If we have a parent (like a server with child connections)
         # then the parent might want us in a list, and we need to make
@@ -297,6 +299,7 @@ class Transport (dispatch.Dispatch):
             self.__reconnect(False)
         if self._parent and self._node:
             self._parent.removeChild(self)
+            self._node.clear()
             self._node = None
 
     ##-----------------------------------------
@@ -337,7 +340,7 @@ class Transport (dispatch.Dispatch):
         # The current generation needs to be wrapped into this hook;
         # this way we don't close the next generation of connection
         # in the case of a reconnect....
-        w = ClearStreamWrapper(x, TransportRef(self, weak=(not self._parent)))
+        w = ClearStreamWrapper(x, TransportRef(self))
         self._stream_w = w
 
         # If optional hooks were specified, call them here; give as an

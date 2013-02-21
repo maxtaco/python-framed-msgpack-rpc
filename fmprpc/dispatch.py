@@ -208,7 +208,6 @@ class Dispatch (Packetizer):
 	def invoke (self, program=None, method=None, arg=None, notify=False):
 		i = self.newInvocation(program=program, method=method, arg=arg, notify=notify)
 		e,res = i.invoke()
-		self.error("Fucuciksdf {0}".format(self._handlers.keys()))
 		if e: raise err.RpcCallError(e)
 		return res
 

@@ -57,21 +57,16 @@ class Test1(unittest.TestCase):
 
     def __simple(self):
         t = fmprpc.Transport(remote = fmprpc.InternetAddress(port = self.PORT))
-        print("A rc={0}".format(sys.getrefcount(t)))
         ok = t.connect()
-        print("B rc={0}".format(sys.getrefcount(t)))
         self.assertTrue(ok)
         if ok:
             c = fmprpc.Client(t, self.PROG)
-            print("C rc={0}".format(sys.getrefcount(t)))
             arg = { "i" : 4 }
             res = c.invoke("foo",arg)
             self.assertEquals(res["y"], 6)
-            print("D rc={0}".format(sys.getrefcount(t)))
             arg = { "j" : 7, "k" : 11 }
             res = c.invoke("bar",arg)
             self.assertEquals(res["y"], 77)
-            print("rc={0}".format(sys.getrefcount(t)))
 
     def test_a (self):
         self.__simple()

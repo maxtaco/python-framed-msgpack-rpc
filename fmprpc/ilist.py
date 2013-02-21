@@ -16,6 +16,7 @@ class Node(object):
 	def getNext(self): return self._next
 	def setNext(self,n): self._next = n
 	def getParent(self): return self._parent
+	def clear(self): self._parent = None
 
 class List (object):
 	"""

@@ -9,7 +9,7 @@ import sys
 
 ##=======================================================================
 
-class Listener (log.Proxy):
+class Listener (log.Base):
 
     def __init__(self, bindto, TransportClass=None, log_obj=None):
         self.bindto = bindto
@@ -17,7 +17,7 @@ class Listener (log.Proxy):
 
         if not log_obj:
             log_obj = self.__defaultLogger()
-        log.Proxy.__init__(self, log_obj)
+        log.Base.__init__(self, log_obj)
 
         self._children = ilist.List()
         self._dbgr = None

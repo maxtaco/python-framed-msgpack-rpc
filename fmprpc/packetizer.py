@@ -30,7 +30,7 @@ def msgpackFrameLen (byt) :
 
 ##=======================================================================
 
-class Packetizer (log.Proxy):
+class Packetizer (log.Base):
 	"""
 	A packetizer that is used to read and write to an underlying
 	stream (like a Transport). Should be inherited by such a class.
@@ -68,7 +68,7 @@ class Packetizer (log.Proxy):
 		self._ring = Ring()
 		self._state = self.FRAME
 		self._next_msg_len = 0
-		log.Proxy.__init__(self, log_obj)
+		log.Base.__init__(self, log_obj)
 
 	#-------------------------------
 

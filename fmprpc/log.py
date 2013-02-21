@@ -88,7 +88,7 @@ class Logger (object):
 
 ##=======================================================================
 
-class Proxy(object):
+class Base(object):
     def __init__ (self, log_obj = None):
         if log_obj:
             self.log_obj = log_obj

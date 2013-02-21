@@ -11,7 +11,7 @@ import sys
 
 ##=======================================================================
 
-class ConstantReader (threading.Thread, log.Proxy):
+class ConstantReader (threading.Thread, log.Base):
     """
     A thread that will read on a socket, injecting any new data packets
     into the packetizer.  It's important to note that this class doesn't
@@ -23,7 +23,7 @@ class ConstantReader (threading.Thread, log.Proxy):
     def __init__ (self, wrapper):
         self.wrapper = wrapper
         self.transport = wrapper.transport
-        log.Proxy.__init__(self, self.transport().getLogger())
+        log.Base.__init__(self, self.transport().getLogger())
         threading.Thread.__init__(self)
 
     def run (self):
@@ -53,7 +53,7 @@ class ConstantReader (threading.Thread, log.Proxy):
 
 ##=======================================================================
 
-class ClearStreamWrapper (log.Proxy):
+class ClearStreamWrapper (log.Base):
     """
     A shared wrapper around a socket, for which close() is idempotent. Of course,
     no encyrption on this interface.
@@ -66,7 +66,7 @@ class ClearStreamWrapper (log.Proxy):
         self.write_closed_warn = False
         self.reader = None
         self.transport = transport
-        log.Proxy.__init__(self, transport().getLogger())
+        log.Base.__init__(self, transport().getLogger())
         if socket:
             self.remote = util.InternetAddress(tup=s.getpeername())
 
@@ -221,14 +221,14 @@ class Transport (dispatch.Dispatch):
     ##-----------------------------------------
 
     def setLogger (self, o):
-        """Override of the log.Proxy.setLogger(), we're doing two additional
+        """Override of the log.Base.setLogger(), we're doing two additional
         things: first, picking a sensible default logger on None; and second,
         setting the remote field on the logger appropriately.
         """
 
         if not o:
             o = log.newDefaultLogger()
-        log.Proxy.setLogger(self, o)
+        log.Base.setLogger(self, o)
         o.setRemote(self.remote())
 
     ##-----------------------------------------

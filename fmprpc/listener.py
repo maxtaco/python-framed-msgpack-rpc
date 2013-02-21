@@ -67,7 +67,7 @@ class Listener (object):
     def makeNewLogObject (self, remote):
         return self._log_obj.makeChild(remote=remote)
 
-    def closeChild (self, c):
+    def removeChild (self, c):
         self._children.remove(c.serverListNode())
 
     def close(self):

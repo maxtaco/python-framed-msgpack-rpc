@@ -72,7 +72,6 @@ class Test1(unittest.TestCase):
             res = c.invoke("bar",arg)
             self.assertEquals(res["y"], 77)
             print("rc={0}".format(sys.getrefcount(t)))
-            t.close()
 
     def test_a (self):
         self.__simple()

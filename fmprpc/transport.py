@@ -225,8 +225,10 @@ class Transport (dispatch.Dispatch):
     ##-----------------------------------------
 
     def reset(self, w):
+        self._lock.acquire()
         if not w: w = self._stream_w
-        self.__close(w)
+        self.__implicitClose(w)
+        self._lock.release()
 
     ##-----------------------------------------
 

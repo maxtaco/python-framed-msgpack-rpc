@@ -8,84 +8,98 @@ import sys
 ##=======================================================================
 
 class Levels:
-	"""
-	Enumerated class for log levels. 
-	"""
-	NONE = 0 
-	DEBUG = 1
-	INFO = 2
-	WARN = 3
-	ERROR = 4
-	FATAL = 5
-	TOP = 6
+    """
+    Enumerated class for log levels. 
+    """
+    NONE = 0 
+    DEBUG = 1
+    INFO = 2
+    WARN = 3
+    ERROR = 4
+    FATAL = 5
+    TOP = 6
 
-	DEFAULT = INFO
+    DEFAULT = INFO
 
-	@classmethod
-	def setDefault(klass, l): 
-		"""
-		Set the default log level for all future Logger objects;
-		this won't retoractively affect those that are already allocated.
-		"""
-		klass.DEFAULT = l
+    @classmethod
+    def setDefault(klass, l): 
+        """
+        Set the default log level for all future Logger objects;
+        this won't retoractively affect those that are already allocated.
+        """
+        klass.DEFAULT = l
 
 ##=======================================================================
 
 def trim(msg):
-	"""
-	Trim the given message, stripping out all trailing whitespace
-	and adding a final newline in preparation for logging.
-	"""
-	msg = str(msg)
-	i = len(msg) - 1
-	while i >= 0 and msg[i].isspace():
-		i -= 1
-	i += 1
-	return msg[0:i] + "\n"
+    """
+    Trim the given message, stripping out all trailing whitespace
+    and adding a final newline in preparation for logging.
+    """
+    msg = str(msg)
+    i = len(msg) - 1
+    while i >= 0 and msg[i].isspace():
+        i -= 1
+    i += 1
+    return msg[0:i] + "\n"
 
 ##=======================================================================
 
 class Logger (object):
-	"""
-	A logger class that exposes the 'debug', 'info', 'warn',
-	'error', and 'fatal' methods for logging.
-	"""
+    """
+    A logger class that exposes the 'debug', 'info', 'warn',
+    'error', and 'fatal' methods for logging.
+    """
 
-	def __init__ (self, prefix="RPC", remote=None, level=None):
-		self.prefix = prefix 
-		self.remote = remote
-		self.level = level if level else Levels.DEFAULT
-		self.outputHook = self.output
+    def __init__ (self, prefix="RPC", remote=None, level=None):
+        self.prefix = prefix 
+        self.remote = remote
+        self.level = level if level else Levels.DEFAULT
+        self.outputHook = self.output
 
-	def setLevel (self, l): self.level = l
-	def setRemote (self, r): self.remote = r
-	def setPrefix (self, p): self.prefix = p
+    def setLevel (self, l): self.level = l
+    def setRemote (self, r): self.remote = r
+    def setPrefix (self, p): self.prefix = p
 
-	def debug(self, msg): self._log(msg, Levels.DEBUG, "D")
-	def info (self, msg): self._log(msg, Levels.INFO , "I")
-	def warn (self, msg): self._log(msg, Levels.WARN , "W")
-	def error(self, msg): self._log(msg, Levels.ERROR, "E")
-	def fatal(self, msg): self._log(msg, Levels.FATAL, "F")
+    def debug(self, msg): self._log(msg, Levels.DEBUG, "D")
+    def info (self, msg): self._log(msg, Levels.INFO , "I")
+    def warn (self, msg): self._log(msg, Levels.WARN , "W")
+    def error(self, msg): self._log(msg, Levels.ERROR, "E")
+    def fatal(self, msg): self._log(msg, Levels.FATAL, "F")
 
-	def _log (self, msg, level, display, ohook=None):
-		if level >= self.level: 
-			msg = trim(msg)
-			parts = []
-			if self.prefix: parts.append(self.prefix)
-			if display    :       parts.append("[{0}]".format(display))
-			if self.remote: parts.append(str(self.remote))
-			if msg:         parts.append(msg)
-			if not ohook:   ohook = self.outputHook
-			ohook(" ".join(parts))
+    def _log (self, msg, level, display, ohook=None):
+        if level >= self.level: 
+            msg = trim(msg)
+            parts = []
+            if self.prefix: parts.append(self.prefix)
+            if display    :       parts.append("[{0}]".format(display))
+            if self.remote: parts.append(str(self.remote))
+            if msg:         parts.append(msg)
+            if not ohook:   ohook = self.outputHook
+            ohook(" ".join(parts))
 
-	def output(self, msg):
-		sys.stderr.write(msg)
+    def output(self, msg):
+        sys.stderr.write(msg)
 
-	def makeChild(self, remote=None):
-		return Logger(prefix=self.prefix, 
-					  remote = remote if remote else self.remote,
-					  level = self.level)
+    def makeChild(self, remote=None):
+        return Logger(prefix=self.prefix, 
+                      remote = remote if remote else self.remote,
+                      level = self.level)
 
+##=======================================================================
+
+class Proxy(object):
+    def __init__ (self, log_obj = None):
+        if log_obj:
+            self.log_obj = log_obj
+    def getLogger(self): return self.log_obj
+    def setLogger(self, o): self.log_obj = o
+    def warn(self, e) : self.log_obj.warn(e)
+    def info(self, e) : self.log_obj.info(e)
+    def fatal(self, e): self.log_obj.fatal(e)
+    def debug(self, e): self.log_obj.debug(e)
+    def error(self, e): self.log_obj.error(e)
+  
 ##=======================================================================
 
 _defaultLoggerClass = Logger

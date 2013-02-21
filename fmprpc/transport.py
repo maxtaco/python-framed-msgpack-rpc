@@ -11,21 +11,29 @@ import sys
 
 ##=======================================================================
 
-class ConstantReader (threading.Thread):
-
-    def __init__ (self, transport, wrapper):
-        self.transport = transport
+class ConstantReader (threading.Thread, log.Proxy):
+    """
+    A thread that will read on a socket, injecting any new data packets
+    into the packetizer.  It's important to note that this class doesn't
+    get a real reference to the Transport it's working on behalf of, only
+    a weak reference to it.  This way it won't keep a transport from
+    going out of scope in the case of a client who has stop being 
+    interested in a particular connection.
+    """
+    def __init__ (self, wrapper):
         self.wrapper = wrapper
-        self.log_obj = transport().getLogger()
+        self.transport = wrapper.transport
+        log.Proxy.__init__(self, self.transport().getLogger())
         threading.Thread.__init__(self)
 
     def run (self):
         go = True
-        while go and self.wrapper and self.transport():
+
+        while go and self.transport():
             op = None
             try:
                 buf = self.wrapper.recv(0x1000)
-                self.log_obj.debug("Got data: {0}".format(util.formatRaw(buf)))
+                self.debug("Got data: {0}".format(util.formatRaw(buf)))
                 if buf:
                     op = lambda : self.transport().packetizeData(buf)
                 else:
@@ -34,13 +42,18 @@ class ConstantReader (threading.Thread):
             except IOError as e:
                 op = lambda : self.transport().handleError(e, self.wrapper)
                 go = False
+
+            # Any operations done on the transport should be atomic and protected
+            # by locks.  This includes shutting down the socket due to an EOF
+            # or an error.
             if op and self.transport():
                 self.transport().atomicOp(op)
-        self.log_obj.info("leave reader loop")
+
+        self.info("leave reader loop")
 
 ##=======================================================================
 
-class ClearStreamWrapper (object):
+class ClearStreamWrapper (log.Proxy):
     """
     A shared wrapper around a socket, for which close() is idempotent. Of course,
     no encyrption on this interface.
@@ -51,18 +64,25 @@ class ClearStreamWrapper (object):
         self.socket = s
         self.generation = transport().nextGeneration()
         self.write_closed_warn = False
-        self._reader = None
+        self.reader = None
         self.transport = transport
-        self.log_obj = transport().getLogger()
+        log.Proxy.__init__(self, transport().getLogger())
         if socket:
-            self._remote = util.InternetAddress(tup=s.getpeername())
+            self.remote = util.InternetAddress(tup=s.getpeername())
 
-    def launchReader (self):
-        if self._reader:
-            self.log_obj.error("Refusing to launch a second reader...")
+    def start(self):
+        """
+        Activate this wrapper.  Do any necessary handshaking and also
+        start the persistent reading thread to gather incoming data.
+        """
+        self.__launchConstantReader()
+
+    def __launchConstantReader(self):
+        if self.reader:
+            self.error("Refusing to launch a second reader...")
         else:
-            self._reader = ConstantReader(self.transport, self)
-            self._reader.start()
+            self.reader = ConstantReader(self)
+            self.reader.start()
 
     def close (self, force):
         """
@@ -78,6 +98,10 @@ class ClearStreamWrapper (object):
                 t.dispatchReset()
                 t.packetizerReset()
             if force:
+                # Force the shutdown in the case of an explicit close
+                # or a transport going out of scope.  Shutting down
+                # the socket with this call will cause the ConstantReader
+                # loop to see and EOF and to exit.
                 x.shutdown(socket.SHUT_RDWR)
             x.close()
         return ret
@@ -87,29 +111,31 @@ class ClearStreamWrapper (object):
         Write the message to the socket, calling send(2) repeatedly
         until the buffer is flushed out.  Use low-level socket calls.
         """
-        self.log_obj.debug("writing data: {0}".format(util.formatRaw(msg)))
+        self.debug("writing data: {0}".format(util.formatRaw(msg)))
         if self.socket:
             self.socket.sendall(msg)
         elif not self.write_closed_warn:
             self.write_closed_warn = True
-            self.log_obj.warn("write on closed socket")
+            self.warn("write on closed socket")
 
     def recv(self, n):
         if self.socket:
             return self.socket.recv(n)
         else:
-            self.log_obj.warn("calling recv on a closed socket")
+            self.warn("calling recv on a closed socket")
             return None
 
     def stream (self): return self.socket
     def isConnected (self): return not not self.socket
     def getGeneration (self): return self.generation
-
-    def remote(self): return self._remote
+    def remote(self): return self.remote
 
 ##=======================================================================
 
 class Transport (dispatch.Dispatch):
+    """
+    A wrapper around a TCP stream (given by the parameter socket).
+    """
 
     def __init__ (self, remote=None, tcp_opts={}, 
                   stream=None, log_obj=None, parent=None,
@@ -147,7 +173,14 @@ class Transport (dispatch.Dispatch):
 
     ##-----------------------------------------
 
-    def serverListNode (self): return self._node
+    def serverListNode (self): 
+        """Get the ilist.Node data structure used for storing this object
+        in a list of other transports on servers.  Servers need to do this
+        for two reasons: (1) to keep a reference to all living children, lest
+        they get thrown away; and (2) so that it can iterate across all
+        children in certain cases (like to turn on debugging).
+        """
+        return self._node
 
     ##-----------------------------------------
 
@@ -161,8 +194,7 @@ class Transport (dispatch.Dispatch):
     ##-----------------------------------------
 
     def nextGeneration (self):
-        """To be called by StreamWrapper objects but not by
-        average users."""
+        """To be called by StreamWrapper objects but not by average users."""
         ret = self._generation
         self._generation += 1
         return ret
@@ -188,12 +220,8 @@ class Transport (dispatch.Dispatch):
     def setLogger (self, o):
         if not o:
             o = log.newDefaultLogger()
-        self.log_obj = o
-        self.log_obj.setRemote(self.remote())
-
-    ##-----------------------------------------
-
-    def getLogger (self): return self.log_obj
+        log.Proxy.setLogger(self, o)
+        o.setRemote(self.remote())
 
     ##-----------------------------------------
 
@@ -235,7 +263,7 @@ class Transport (dispatch.Dispatch):
     def __del__(self):
         self.debug("calling __del__ on transport object")
         # An object deletion is equivalent to an explicit close...
-        self.close()
+        self.__explicitClose()
    
     ##-----------------------------------------
 
@@ -244,25 +272,12 @@ class Transport (dispatch.Dispatch):
         Call to explicitly close this connection.  After an explicit close,
         reconnects are not attempted....
         """
-        self._lock.acquire()
-        self._explicit_close = True
-        if self._stream_w:
-            w = self._stream_w
-            self._stream_w = None
-            w.close(True)
-            self.__unregister()
-        self._lock.release()
+        self.__explicitClose()
+
     #
     # /Public API
     ##---------------------------------------------------
 
-    def warn(self, e) : self.log_obj.warn(e)
-    def info(self, e) : self.log_obj.info(e)
-    def fatal(self, e): self.log_obj.fatal(e)
-    def debug(self, e): self.log_obj.debug(e)
-    def error(self, e): self.log_obj.error(e)
-  
-    ##-----------------------------------------
 
     def __implicitClose (self, tcpw):
         # If an optional close hook was specified, call it here...
@@ -271,6 +286,18 @@ class Transport (dispatch.Dispatch):
         if tcpw.close(False):
             self.reconnect(False)
         self.__unregister()
+
+    ##-----------------------------------------
+
+    def __explicitClose(self):
+        self._lock.acquire()
+        self._explicit_close = True
+        if self._stream_w:
+            w = self._stream_w
+            self._stream_w = None
+            w.close(True)
+            self.__unregister()
+        self._lock.release()
 
     ##-----------------------------------------
 
@@ -330,15 +357,13 @@ class Transport (dispatch.Dispatch):
         # afloat.
         w = ClearStreamWrapper(x, weakref.ref(self))
         self._stream_w = w
+        w.start()
 
         # If optional hooks were specified, call them here; give as an
         # argument the new StreamWrapper so that way the subclass can
         # issue closes on the connection
         if self._hooks and self._hooks.connected:
             self._hooks.connected(w)
-
-        # Launch a reader thread
-        w.launchReader()
 
     ##-----------------------------------------
 

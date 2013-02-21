@@ -3,6 +3,7 @@ import msgpack
 from msgpack.exceptions import UnpackValueError
 from ring import Ring
 from err import UnpackTypeError
+import log
 
 ##=======================================================================
 
@@ -29,7 +30,7 @@ def msgpackFrameLen (byt) :
 
 ##=======================================================================
 
-class Packetizer (object):
+class Packetizer (log.Proxy):
 	"""
 	A packetizer that is used to read and write to an underlying
 	stream (like a Transport). Should be inherited by such a class.
@@ -67,6 +68,7 @@ class Packetizer (object):
 		self._ring = Ring()
 		self._state = self.FRAME
 		self._next_msg_len = 0
+		log.Proxy.__init__(self)
 
 	#-------------------------------
 

@@ -7,8 +7,7 @@ import time
 import fmprpc.log as log
 import sys
 
-log.Levels.setDefault(log.Levels.WARN)
-
+log.Levels.setDefault(log.Levels.DEBUG)
 
 class ServerThread(threading.Thread):
 

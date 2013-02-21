@@ -97,8 +97,8 @@ class Dispatch (Packetizer):
 
 	##-----------------------------------------
 
-	def __init__ (self):
-		Packetizer.__init__(self)
+	def __init__ (self, log_obj):
+		Packetizer.__init__(self, log_obj)
 		self._invocations = {}
 		self._handlers = {}
 		self._seqid = 1

@@ -141,7 +141,9 @@ class Transport (dispatch.Dispatch):
                   stream=None, log_obj=None, parent=None,
                   hooks={}, dbgr=None):
 
-        dispatch.Dispatch.__init__(self)
+        # Don't create with a log object, we'll get to that
+        # below via setLogger().  We might want to revisit this...
+        dispatch.Dispatch.__init__(self, log_obj=None)
 
         # We don't store the TCP stream directly, but rather, sadly,
         # a **wrapper** around the TCP stream.  This is to make stream
@@ -156,10 +158,11 @@ class Transport (dispatch.Dispatch):
         self._explicit_close = False
         self._parent = parent
 
-        self.setLogger(log_obj)
         self._generation = 1
         self._dbgr = dbgr
         self._hooks = hooks
+
+        self.setLogger(log_obj)
 
         # If we have a parent (like a server with child connections)
         # then the parent might want us in a list, and we need to make
@@ -189,7 +192,7 @@ class Transport (dispatch.Dispatch):
     ##---------------------------------------
 
     def setDebugFlags (f):
-        self.setDebugger(debug.makeDebugger(d,self.log_obj))
+        self.setDebugger(debug.makeDebugger(d,self.getLogger()))
    
     ##-----------------------------------------
 
@@ -218,6 +221,11 @@ class Transport (dispatch.Dispatch):
     ##-----------------------------------------
 
     def setLogger (self, o):
+        """Override of the log.Proxy.setLogger(), we're doing two additional
+        things: first, picking a sensible default logger on None; and second,
+        setting the remote field on the logger appropriately.
+        """
+
         if not o:
             o = log.newDefaultLogger()
         log.Proxy.setLogger(self, o)

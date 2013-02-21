@@ -64,11 +64,11 @@ class Packetizer (log.Proxy):
 
 	#-------------------------------
 
-	def __init__ (self):
+	def __init__ (self, log_obj):
 		self._ring = Ring()
 		self._state = self.FRAME
 		self._next_msg_len = 0
-		log.Proxy.__init__(self)
+		log.Proxy.__init__(self, log_obj)
 
 	#-------------------------------
 

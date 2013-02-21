@@ -9,12 +9,16 @@ import sys
 
 ##=======================================================================
 
-class Listener (object):
+class Listener (log.Proxy):
 
     def __init__(self, bindto, TransportClass=None, log_obj=None):
         self.bindto = bindto
         self.TransportClass = TransportClass if TransportClass else transport.Transport
-        self.setLogger(log_obj)
+
+        if not log_obj:
+            log_obj = self.__defaultLogger()
+        log.Proxy.__init__(self, log_obj)
+
         self._children = ilist.List()
         self._dbgr = None
 
@@ -27,13 +31,8 @@ class Listener (object):
     def setDebugger (self, d) :
         self._dbgr = d
 
-    def setLogger (self, o):
-        if not o:
-            o = self.__defaultLogger()
-        self._log_obj = o
-
     def setDebugFlags (self, f, apply_to_children):
-        self.setDebugger(debug.makeDebugger(f, self._log_obj))
+        self.setDebugger(debug.makeDebugger(f, self.getLogger()))
         if apply_to_children:
             self._children.walk(lambda x: x.setDebugFlags(f))
 
@@ -64,7 +63,7 @@ class Listener (object):
         raise NotImplementedError("Listener::gotNewConnection is pure virtual")
 
     def makeNewLogObject (self, remote):
-        return self._log_obj.makeChild(remote=remote)
+        return self.getLogger().makeChild(remote=remote)
 
     def removeChild (self, c):
         self._children.remove(c.serverListNode())
@@ -76,10 +75,6 @@ class Listener (object):
             x.close()
 
     def setPort (self, p): self.port = p
-
-    def error(self,msg): self._log_obj.error(msg)
-    def warn(self,msg) : self._log_obj.warn(msg)
-    def info(self,msg) : self._log_obj.info(msg)
 
     def __bindAndListen(self, ql):
         # This code taken: from http://docs.python.org/2/library/socket.html

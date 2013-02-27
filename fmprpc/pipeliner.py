@@ -1,9 +1,11 @@
 
 import threading
+from collections import deque
 
 class Runner(threading.Thread):
 
     def __init__ (self, runfn, resfn):
+        threading.Thread.__init__(self)
         self._runfn = runfn
         self._resfn = resfn
 
@@ -13,6 +15,7 @@ class Runner(threading.Thread):
 
 class AirTrafficController(threading.Thread):
     def __init__(self, parent):
+        threading.Thread.__init__(self)
         self._p = parent
     def run(self):
         self._p.airTrafficControl()
@@ -23,11 +26,12 @@ class Pipeliner (object):
         self._width = w
         self._lock = threading.Lock()
         self._cond = threading.Condition(self._lock)
-        self._queue = []
+        self._queue = deque()
         self._slots = {}
         self._out = 0
         self._i = 0
         self._done = False
+        self._flushed = threading.Event()
 
     def isRoomInWindow(self):
         return (self._out < self._width)
@@ -42,28 +46,28 @@ class Pipeliner (object):
         return ret
 
     def __launch (self, func):
-        index = self._i
+        i = self._i
         self._i += 1
         self._out += 1
         t = Runner(func, self.__genResultFunction(i))
-        t.run()
+        t.start()
 
     def airTrafficControl (self):
         self._lock.acquire()
         while (not self._done) or len(self._queue) or (self._out > 0):
             self._cond.wait()
             while self.isRoomInWindow() and len(self._queue):
-                p = self._queue.pop()
+                p = self._queue.popleft()
                 self.__launch(p)
         self._lock.release()
-        self._done.set()
+        self._flushed.set()
 
     def flush (self):
         self._lock.acquire()
         self._done = True
         self._cond.notify()
         self._lock.release()
-        self._done.wait()
+        self._flushed.wait()
         return self._slots
 
     def push (self, func):

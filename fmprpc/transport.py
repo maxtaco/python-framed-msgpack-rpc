@@ -8,6 +8,7 @@ import ilist
 import util
 import weakref
 import sys
+import address
 
 ##=======================================================================
 
@@ -68,7 +69,7 @@ class ClearStreamWrapper (log.Base):
         self.transport = transport
         log.Base.__init__(self, transport().getLogger())
         if socket:
-            self.remote = util.InternetAddress(tup=s.getpeername())
+            self.remote = address.InternetAddress(tup=s.getpeername())
 
     def start(self):
         """

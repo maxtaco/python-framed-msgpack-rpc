@@ -17,13 +17,12 @@ class Flags:
 	RES = 0x40
 	TYPE = 0x80
 	DIR = 0x100
-	PORT = 0x200
-	VERBOSE = 0x400
+	VERBOSE = 0x200
 	ALL = 0xffffffff
 
 	LEVEL_0 = NONE
 	LEVEL_1 = METHOD | TYPE | DIR 
-	LEVEL_2 = LEVEL_1 | SEQID | TIMESTAMP | REMOTE | PORT
+	LEVEL_2 = LEVEL_1 | SEQID | TIMESTAMP | REMOTE 
 	LEVEL_3 = LEVEL_2 | ERR
 	LEVEL_4 = LEVEL_3 | RES | ARG
 
@@ -38,7 +37,6 @@ class Flags:
 		"c" : TYPE,
 		"d" : DIR,
 		"v" : VERBOSE,
-		"P" : PORT,
 		"A" : ALL,
 		"0" : LEVEL_0,
 		"1" : LEVEL_1,
@@ -103,7 +101,7 @@ class Debugger (object):
 		self.log_hook(repr(json_msg))
 
 	def __skipFlag (self, f):
-		return (f & (Flags.PORT | Flags.REMOTE))
+		return (f & (Flags.REMOTE))
 
 	def call (self,msg):
 		new_json_msg = {}

@@ -6,6 +6,7 @@ import ilist
 import time
 import util
 import sys
+import address
 
 ##=======================================================================
 
@@ -123,7 +124,7 @@ class Listener (log.Base):
         while True:
             try:
                 sock, addr = self._tcp_server.accept()
-                self.__gotNewConnection(sock, util.InternetAddress(tup=addr))
+                self.__gotNewConnection(sock, address.InternetAddress(tup=addr))
             except socket.error as e:
                 self.warn("Accept error: {0}".format(e))
         self.info("Leaving listen loop")

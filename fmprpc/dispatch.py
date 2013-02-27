@@ -194,7 +194,7 @@ class Dispatch (Packetizer):
 					seqid = seqid,
 					arg = arg,
 					dir = debug.Direction.OUTGOING,
-					remote = self.remoteAddress(),
+					remote = self.remote(),
 					port = self.remotePort(),
 					typ = dtyp
 				)
@@ -238,8 +238,7 @@ class Dispatch (Packetizer):
 				seqid = bundle.seqid,
 				arg = bundle.arg,
 				dir = debug.Direction.INCOMING,
-				remote = self.remoteAddress(),
-				port = self.remotePort(),
+				remote = self.remote(),
 				typ = debug.Type.SERVER,
 				err = None if handler else "unknown method"
 				)

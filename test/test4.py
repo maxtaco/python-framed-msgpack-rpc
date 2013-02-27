@@ -7,7 +7,13 @@ import time
 import fmprpc.log as log
 import fmprpc.server as server
 import fmprpc.err as err
+import random_json
+from fmprpc.pipeliner import Pipeliner
 
+def random_string ():
+    return random_json.Generator().string()
+def random_object ():
+    return random_json.obj(6)
 
 class P_v1 (server.Handler):
     def h_reflect (self, b):
@@ -30,9 +36,9 @@ class ServerThread(threading.Thread):
     def stop(self):
         self.srv.close()
 
-class Test2(unittest.TestCase):
+class Test4(unittest.TestCase):
 
-    PORT = 50001 + (int(time.time()) % 1000)
+    PORT = 50001 + (int(time.time()*1000) % 1000)
     PROG = "P.1"
 
     @classmethod
@@ -49,47 +55,33 @@ class Test2(unittest.TestCase):
         c.wait()
         c.release()
 
-    def __call(self, i, t, genfn):
+    def __call(self, p, i, t, genfn):
         arg = genfn()
-        c = fmprpc.Client(t, self.PROG)
-        res = c.invoke("reflect", arg)
-        ret = True
-        if (arg != res):
-            ret = False
-            print("Problem in Call {0}: {1} != {2}".format(i, arg, res))
-        self.assertTrue(ret)
+        def f ():
+            c = fmprpc.Client(t, self.PROG)
+            res = c.invoke("reflect", arg)
+            ret = True
+            if (arg != res):
+                ret = False
+                print("Problem in Call {0}: {1} != {2}".format(i, arg, res))
+            self.assertTrue(ret)
+        p.push(f)
 
     def __runner(self, n, genfn):
         t = fmprpc.Transport(remote = fmprpc.InternetAddress(port = self.PORT))
         ok = t.connect()
         self.assertTrue(ok)
         if ok:
-            args = [ genfn() for i in range(n) ]
             p = Pipeliner(50)
             p.start()
-            for i in args:
-                p.push(lambda : self.__call(i, t, genfn()))
+            for i in range(n):
+                self.__call(p,i,t,genfn)
             results = p.flush()
 
-
-            arg = { "i" : 4 }
-            res = c.invoke("foo", arg)
-            self.assertEquals(res["y"], 6)
-            arg = { "j" : 7, "k" : 11 }
-            res = c.invoke("bar", arg)
-            self.assertEquals(res["y"], 77)
-            bad = "XXyyXX"
-            try:
-                res = c.invoke(bad, arg)
-                self.assertTrue(False)
-            except err.RpcCallError as e:
-                self.assertTrue(str(e).find("unknown method") >= 0)
-                self.assertTrue(str(e).find(bad) >= 0)
-
-    def test_a (self):
-        self.__simple()
-    def test_b (self):
-        self.__simple()
+    def test_volley_of_objects (self):
+        self.__runner(200, random_object)
+    def test_volley_of_strings (self):
+        self.__runner(500, random_string)
 
     @classmethod
     def tearDownClass(klass):

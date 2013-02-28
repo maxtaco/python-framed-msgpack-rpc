@@ -166,7 +166,7 @@ class Transport (dispatch.Dispatch):
         self._hooks = hooks
 
         # Subclasses can change this
-        self.WrapperClass = ClearStreamWrapper
+        self._wrapper_klass = ClearStreamWrapper
 
         self.setLogger(log_obj)
 
@@ -190,6 +190,11 @@ class Transport (dispatch.Dispatch):
         children in certain cases (like to turn on debugging).
         """
         return self._node
+
+    ##-----------------------------------------
+
+    def setWrapperClass(self, klass):
+        self._wrapper_klass = klass
 
     ##-----------------------------------------
 
@@ -370,7 +375,7 @@ class Transport (dispatch.Dispatch):
         #
         # One more thing: this is a one-liner function so we
         # can let subclasses define new behavior here.
-        return self.WrapperClass (x, weakref.ref(self))
+        return self._wrapper_klass (x, weakref.ref(self))
 
     ##-----------------------------------------
 

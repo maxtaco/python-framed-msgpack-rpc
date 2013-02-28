@@ -1,6 +1,8 @@
+import sys
+sys.path.append("../")
 try:
     import tlslite
-    import fmprpc.tls as tls
+    import fmprpc.crypto.tls as tls
     import tlslite.errors as tlsle
 except ImportError as e:
     raise 
@@ -31,14 +33,14 @@ class Verifier (dict):
         self.insert("max", "yodawg")
         self.insert("chris", "hot sauce lemon party")
     def insert(self, uid, pw):
-        self[uid] = tlslite.mathuils.makeVerifier(uid,pw,2048)
+        self[uid] = tlslite.mathtls.makeVerifier(uid,pw,2048)
 
 class Server (server.ContextualServer, threading.Thread):
 
     def __init__ (self, port, prog, cond):
         threading.Thread.__init__(self)
         bindto = fmprpc.OpenServerAddress(port = port)
-        self.daemon = true
+        self.daemon = True
         self.cond = cond
         classes = { prog : P_v1 }
         server.ContextualServer.__init__(
@@ -47,8 +49,10 @@ class Server (server.ContextualServer, threading.Thread):
             bindto=bindto)
         self.sessionCache = tlslite.SessionCache()
         self.verifier = Verifier()
+        # Commit this server to accepting only TLS connections
+        tls.enableServer(self)
 
-    def doTlsHandshake(self,tc):
+    def tlsDoHandshake(self,tc):
         ret = False
         try:
             tc.handshakeServer(
@@ -63,7 +67,65 @@ class Server (server.ContextualServer, threading.Thread):
         return ret
     def run(self):
         self.listen(self.cond)
-
+    def stop(self):
+        self.close()
 
 @unittest.skipUnless(tlslite, "skipped since tlslite wasn't found")
-class TlsTest (unittest.TestCase):    
+class TlsTest (unittest.TestCase):
+    PORT = 50001 + (int(time.time()*1000) % 1000)
+    PROG = "P.1"
+
+    @classmethod
+    def setUpClass(klass):
+        klass.startServer()
+
+    @classmethod
+    def startServer(klass):
+        c = threading.Condition()
+        c.acquire()
+        t = Server(klass.PORT, klass.PROG, c)
+        klass.server = t
+        t.start()
+        c.wait()
+        c.release()
+
+    def __call(self, p, i, t, genfn):
+        arg = genfn()
+        def f ():
+            c = fmprpc.Client(t, self.PROG)
+            res = c.invoke("reflect", arg)
+            ret = True
+            if (arg != res):
+                ret = False
+                print("Problem in Call {0}: {1} != {2}".format(i, arg, res))
+            self.assertTrue(ret)
+        p.push(f)
+
+    def __runner(self, n, genfn):
+
+        t = tls.TlsClientTransport(
+            remote=fmprpc.InternetAddress(port = self.PORT),
+            uid="max",
+            password="yodawg")
+
+        ok = t.connect()
+        self.assertTrue(ok)
+        if ok:
+            p = Pipeliner(50)
+            p.start()
+            for i in range(n):
+                self.__call(p,i,t,genfn)
+            results = p.flush()
+
+    def test_volley_of_objects (self):
+        self.__runner(200, random_object)
+    def test_volley_of_strings (self):
+        self.__runner(500, random_string)
+
+    @classmethod
+    def tearDownClass(klass):
+        klass.server.stop()
+        del klass.server
+
+if __name__ == "__main__":
+    unittest.main()

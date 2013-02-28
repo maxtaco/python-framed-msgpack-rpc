@@ -32,6 +32,9 @@ class Listener (log.Base):
     def setDebugger (self, d) :
         self._dbgr = d
 
+    def setTransportClass(self, klass):
+        self.TransportClass = klass
+
     def setDebugFlags (self, f, apply_to_children):
         self.setDebugger(debug.makeDebugger(f, self.getLogger()))
         if apply_to_children:

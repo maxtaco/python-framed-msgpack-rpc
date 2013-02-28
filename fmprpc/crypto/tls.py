@@ -1,5 +1,5 @@
 
-import transport
+import fmprpc.transport as transport
 from tlslite import TLSConnection
 
 ##=======================================================================
@@ -56,14 +56,14 @@ class TlsServerStreamWrapper (TlsStreamWrapper):
 
 ##=======================================================================
 
-class TlsClientTranport (transport.Transport):
+class TlsClientTransport (transport.Transport):
 
     def __init__ (self, **kwargs):
         self._pw = kwargs.pop('pw')
         self._uid = kwargs.pop('uid')
         transport.Transport.__init__(self, **kwargs)
         self._tls_session = None
-        self.WrapperClass = TlsClientStreamWrapper
+        self.setWrapperClass(TlsClientStreamWrapper)
 
     def pw (self): return self._pw
     def uid (self): return self._uid
@@ -88,5 +88,5 @@ def enableServer(obj):
 
     # All we really need to do is to change which wrapper class wraps
     # incoming connections,
-    obj.setWrapperClass(TlsServerTransport)
+    obj.setTransportClass(TlsServerTransport)
 

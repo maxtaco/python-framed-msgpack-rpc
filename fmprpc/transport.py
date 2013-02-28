@@ -78,6 +78,7 @@ class ClearStreamWrapper (log.Base):
         start the persistent reading thread to gather incoming data.
         """
         self.__launchConstantReader()
+        return True
 
     def __launchConstantReader(self):
         if self.reader:
@@ -379,13 +380,15 @@ class Transport (dispatch.Dispatch):
 
         w = self.makeWrapper(x)
         self._stream_w = w
-        w.start()
 
-        # If optional hooks were specified, call them here; give as an
-        # argument the new StreamWrapper so that way the subclass can
-        # issue closes on the connection
-        if self._hooks and self._hooks.connected:
-            self._hooks.connected(w)
+        # Server should catch exceptions in start, but clients won't.
+        # In either case, only go ahead if start() returned True.
+        if w.start():
+            # If optional hooks were specified, call them here; give as an
+            # argument the new StreamWrapper so that way the subclass can
+            # issue closes on the connection
+            if self._hooks and self._hooks.connected:
+                self._hooks.connected(w)
 
     ##-----------------------------------------
 

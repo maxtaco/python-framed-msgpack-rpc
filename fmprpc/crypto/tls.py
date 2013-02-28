@@ -2,15 +2,24 @@
 import transport
 from tlslite import TLSConnection
 
+##=======================================================================
+
 class TlsStreamWrapper (transport.ClearStreamWrapper):
 
     def __init__(self, s, transport):
-        transport.ClearStreamWrapper.__init__(s, transport)
+        transport.ClearStreamWrapper.__init__(self, s, transport)
         self._tls_transport = None
 
     # Read and write to the TLS stream, and not the underlying TCP socket
     def stream (self):
         return self._tls_transport
+
+##=======================================================================
+
+class TlsClientStreamWrapper (TlsStreamWrapper):
+
+    def __init__ (self, s, transport):
+        TlsStreamWrapper.__init__ (self, s, transport)
 
     def start (self):
         """Run a TLS handshake, and if that works, start up the constant reader...."""
@@ -25,18 +34,59 @@ class TlsStreamWrapper (transport.ClearStreamWrapper):
             transport.ClearStreamWrapper.start(self)
         else:
             raise err.DeadTransportError("transport was dead in TlsStream start")
+        return True
 
-class TlsTranport (transport.Transport):
+##=======================================================================
+
+class TlsServerStreamWrapper (TlsStreamWrapper):
+    def __init__ (self, s, transport):
+        TlsStreamWrapper.__init__ (self, s, transport)
+
+    def start (self):
+        tc = TLSConnection(self._socket)
+        p = self.transport()
+        if p: p = p._parent
+        if p and p.tlsDoHandshake(tc):
+            self._tls_transport = tc
+            transport.ClearStreamWrapper.start(self)
+            ret = True 
+        else:
+            ret = False
+        return ret
+
+##=======================================================================
+
+class TlsClientTranport (transport.Transport):
 
     def __init__ (self, **kwargs):
         self._pw = kwargs.pop('pw')
         self._uid = kwargs.pop('uid')
         transport.Transport.__init__(self, **kwargs)
         self._tls_session = None
-        self.WrapperClass = TlsStreamWrapper
+        self.WrapperClass = TlsClientStreamWrapper
 
     def pw (self): return self._pw
     def uid (self): return self._uid
     def setTlsSession (self, s): self._tls_session = s
-    def prevoiusTlsSession (self): return self._tls_session
+    def previousTlsSession (self): return self._tls_session
+
+##=======================================================================
+
+class TlsServerTransport (transport.Transport):
+    def __init__ (self, **kwargs):
+        transport.Transport.__init__(self, **kwargs)
+        self.WrapperClass = TlsServerStreamWrapper
+
+##=======================================================================
+
+def enableServer(obj):
+    """Call this function on an fmprpc.Server object to enable/require
+    TLS on all incoming connections on this server.
+    """
+    if not hasattr(obj, "tlsDoHandshake"):
+        raise NotImplementedError, "Server doesn't implement tlsDoHandshake"
+
+    # All we really need to do is to change which wrapper class wraps
+    # incoming connections,
+    obj.setWrapperClass(TlsServerTransport)
 

@@ -36,8 +36,7 @@ class Server (listener.Listener):
 	#-----------------------------------------
 
 	def __init__ (self, **kwargs):
-		self._programs = kwargs["programs"]
-		del kwargs["programs"]
+		self._programs = kwargs.pop("programs")
 		listener.Listener.__init__ (self, **kwargs)
 
 	#-----------------------------------------
@@ -59,8 +58,7 @@ class SimpleServer (listener.Listener):
 	"""
 
 	def __init__ (self, **kwargs):
-		self._program = kwargs['program']
-		del kwargs['programs']
+		self._program = kwargs.pop('program')
 		listener.Listener.__init__ (self, **kwargs)
 
 	def gotNewConnection (self, c):
@@ -102,8 +100,7 @@ class ContextualServer (listener.Listener):
 	"""
 
 	def __init__ (self, **kwargs):
-		self._classes = kwargs["classes"]
-		del kwargs["classes"]
+		self._classes = kwargs.pop("classes")
 		listener.Listener.__init__(self, **kwargs)
 
 	def gotNewConnection(self, c):

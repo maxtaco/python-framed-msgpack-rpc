@@ -10,4 +10,5 @@ class RingError (Error): pass
 class UnpackTypeError(Error): pass
 class RpcCallError(Error): pass
 class PipelinerError(Error): pass
-
+class AuthenticationError(Error): pass
+class DeadTransportError(Error): pass

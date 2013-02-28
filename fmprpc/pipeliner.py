@@ -13,13 +13,6 @@ class Runner(threading.Thread):
         res = self._runfn()
         self._resfn(res)
 
-class AirTrafficController(threading.Thread):
-    def __init__(self, parent):
-        threading.Thread.__init__(self)
-        self._p = parent
-    def run(self):
-        self._p.airTrafficControl()
-
 class Pipeliner (object):
 
     def __init__ (self, w):
@@ -81,7 +74,7 @@ class Pipeliner (object):
         self._lock.release()
 
     def start (self):
-        self._launcher = AirTrafficController(self)
-        self._launcher.start()
+        # Launch the background air traffic controller thread...
+        threading.Thread(target=self.airTrafficControl).start()
 
 

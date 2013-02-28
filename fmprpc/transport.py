@@ -62,7 +62,7 @@ class ClearStreamWrapper (log.Base):
     def __init__ (self, s, transport):
         # Disable Nagle by default on all sockets...
         s.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
-        self.socket = s
+        self._socket = s
         self.generation = transport().nextGeneration()
         self.write_closed_warn = False
         self.reader = None
@@ -70,6 +70,7 @@ class ClearStreamWrapper (log.Base):
         log.Base.__init__(self, transport().getLogger())
         if socket:
             self.remote = address.InternetAddress(tup=s.getpeername())
+
 
     def start(self):
         """
@@ -90,10 +91,10 @@ class ClearStreamWrapper (log.Base):
         Return True if we did the actual close, and false otherwise
         """
         ret = False
-        if self.socket:
+        if self._socket:
             ret = True
-            x = self.socket
-            self.socket = None
+            x = self._socket
+            self._socket = None
             t = self.transport()
             if t:
                 t.dispatchReset()
@@ -113,21 +114,21 @@ class ClearStreamWrapper (log.Base):
         until the buffer is flushed out.  Use low-level socket calls.
         """
         self.debug("writing data: {0}".format(util.formatRaw(msg)))
-        if self.socket:
-            self.socket.sendall(msg)
+        if self.stream():
+            self.stream().sendall(msg)
         elif not self.write_closed_warn:
             self.write_closed_warn = True
-            self.warn("write on closed socket")
+            self.warn("write on closed stream")
 
     def recv(self, n):
-        if self.socket:
-            return self.socket.recv(n)
+        if self.stream():
+            return self.stream().recv(n)
         else:
             self.warn("calling recv on a closed socket")
             return None
 
-    def stream (self): return self.socket
-    def isConnected (self): return not not self.socket
+    def stream (self): return self._socket
+    def isConnected (self): return not not self._socket
     def getGeneration (self): return self.generation
     def remote(self): return self.remote
 
@@ -162,6 +163,9 @@ class Transport (dispatch.Dispatch):
         self._generation = 1
         self._dbgr = dbgr
         self._hooks = hooks
+
+        # Subclasses can change this
+        self.WrapperClass = ClearStreamWrapper
 
         self.setLogger(log_obj)
 
@@ -365,7 +369,7 @@ class Transport (dispatch.Dispatch):
         #
         # One more thing: this is a one-liner function so we
         # can let subclasses define new behavior here.
-        return ClearStreamWrapper(x, weakref.ref(self))
+        return self.WrapperClass (x, weakref.ref(self))
 
     ##-----------------------------------------
 

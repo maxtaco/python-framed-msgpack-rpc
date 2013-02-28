@@ -346,11 +346,9 @@ class Transport (dispatch.Dispatch):
             self.__implicitClose(tcpw)
 
     ##-----------------------------------------
-  
-    def activateStream (self, x):
 
-        self.info("connection established in activateStream")
-
+    def makeWrapper(self, x):
+        #
         # The current generation needs to be wrapped into this hook;
         # this way we don't close the next generation of connection
         # in the case of a reconnect.
@@ -364,7 +362,18 @@ class Transport (dispatch.Dispatch):
         # stays open, but there's a pointer to us in the server's _children
         # list, so we have no need for the readloop to keep the references
         # afloat.
-        w = ClearStreamWrapper(x, weakref.ref(self))
+        #
+        # One more thing: this is a one-liner function so we
+        # can let subclasses define new behavior here.
+        return ClearStreamWrapper(x, weakref.ref(self))
+
+    ##-----------------------------------------
+
+    def activateStream (self, x):
+
+        self.info("connection established in activateStream")
+
+        w = self.makeWrapper(x)
         self._stream_w = w
         w.start()
 

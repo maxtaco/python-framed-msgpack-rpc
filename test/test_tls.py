@@ -18,6 +18,7 @@ import fmprpc.server as server
 import fmprpc.err as err
 import random_json
 import socket
+from fmprpc.pipeliner import Pipeliner
 
 def random_string ():
     return random_json.Generator().string()

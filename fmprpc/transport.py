@@ -77,6 +77,7 @@ class ClearStreamWrapper (log.Base):
         Activate this wrapper.  Do any necessary handshaking and also
         start the persistent reading thread to gather incoming data.
         """
+        print("Call into ClearStreamWrapper.start....")
         self.__launchConstantReader()
         return True
 

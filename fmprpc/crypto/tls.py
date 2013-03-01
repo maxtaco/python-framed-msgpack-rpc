@@ -6,8 +6,9 @@ from tlslite import TLSConnection
 
 class TlsStreamWrapper (transport.ClearStreamWrapper):
 
-    def __init__(self, s, transport):
-        transport.ClearStreamWrapper.__init__(self, s, transport)
+    def __init__(self, s, t):
+        print("TlsStreamWrapper called...")
+        transport.ClearStreamWrapper.__init__(self, s, t)
         self._tls_transport = None
 
     # Read and write to the TLS stream, and not the underlying TCP socket
@@ -31,6 +32,7 @@ class TlsClientStreamWrapper (TlsStreamWrapper):
             self._tls_transport = tc
             p.setTlsSession(tc.session)
             # Call up to superclass....
+            print("XXX done with handshake (c)")
             transport.ClearStreamWrapper.start(self)
         else:
             raise err.DeadTransportError("transport was dead in TlsStream start")
@@ -48,6 +50,7 @@ class TlsServerStreamWrapper (TlsStreamWrapper):
         if p: p = p._parent
         if p and p.tlsDoHandshake(tc):
             self._tls_transport = tc
+            print("XXX done with handshake (s)") 
             transport.ClearStreamWrapper.start(self)
             ret = True 
         else:
@@ -59,6 +62,7 @@ class TlsServerStreamWrapper (TlsStreamWrapper):
 class TlsClientTransport (transport.Transport):
 
     def __init__ (self, **kwargs):
+        print("TlsClientTransport allocated")
         self._pw = kwargs.pop('pw')
         self._uid = kwargs.pop('uid')
         transport.Transport.__init__(self, **kwargs)
@@ -74,8 +78,9 @@ class TlsClientTransport (transport.Transport):
 
 class TlsServerTransport (transport.Transport):
     def __init__ (self, **kwargs):
+        print("TlsServerTransport called")
         transport.Transport.__init__(self, **kwargs)
-        self.WrapperClass = TlsServerStreamWrapper
+        self.setWrapperClass(TlsServerStreamWrapper)
 
 ##=======================================================================
 

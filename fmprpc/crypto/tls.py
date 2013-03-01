@@ -43,7 +43,9 @@ class TlsClientStreamWrapper (TlsStreamWrapper):
                 p.info("Handshake succeeded for #{0}".format(u))
                 ret = True
             except TLSRemoteAlert as e:
-                p.warn("SRP authentication error for {0}: {1}".format(u, e))
+                msg = "SRP authentication error for {0}: {1}".format(u, e)
+                p.info(msg)
+                p.reportError('handshake', msg)
         else:
             p.warn("Transport was dead in TlsClientStreamWrapper.start")
         return ret

@@ -31,10 +31,16 @@ class P_v1 (server.Handler):
     def h_reflect (self, b):
         b.reply(b.arg)
 
+Passwords = {
+    "max" : "yodawg",
+    "chris" : "lemon party hot sauce",
+    "sam" : "password" 
+}
+
 class Verifier (dict):
     def __init__ (self):
-        self.insert("max", "yodawg")
-        self.insert("chris", "hot sauce lemon party")
+        for (n,p) in Passwords.items():
+            self.insert(n,p)
     def insert(self, uid, pw):
         self[uid] = tlslite.mathtls.makeVerifier(uid,pw,2048)
 
@@ -66,7 +72,7 @@ class Server (server.ContextualServer, threading.Thread):
             tlsle.TLSAbruptCloseError,
             tlsle.TLSAlert,
             tlsle.TLSAuthenticationError) as e:
-            print("Handshake error: {0}".format(e))
+            self.info("Handshake error: {0}".format(e))
         return ret
     def run(self):
         self.listen(self.cond)
@@ -109,7 +115,7 @@ class TlsTest (unittest.TestCase):
         t = tls.TlsClientTransport(
             remote=fmprpc.InternetAddress(port = self.PORT),
             uid="max",
-            pw="yodawg")
+            pw=Passwords["max"])
 
         ok = t.connect()
         self.assertTrue(ok)
@@ -124,6 +130,15 @@ class TlsTest (unittest.TestCase):
         self.__runner(200, random_object)
     def test_volley_of_strings (self):
         self.__runner(500, random_string)
+
+    def test_bad_login (self):
+        t = tls.TlsClientTransport(
+            remote=fmprpc.InternetAddress(port = self.PORT),
+            uid="max",
+            pw=Passwords["chris"])
+        ok = t.connect()
+        self.assertTrue(not ok)
+        self.assertTrue(t.getError('handshake'))
 
     @classmethod
     def tearDownClass(klass):

@@ -172,6 +172,7 @@ class Transport (dispatch.Dispatch):
 
         # Subclasses can change this
         self._wrapper_klass = ClearStreamWrapper
+        self._error_messages = {}
 
         self.setLogger(log_obj)
 
@@ -195,6 +196,11 @@ class Transport (dispatch.Dispatch):
         children in certain cases (like to turn on debugging).
         """
         return self._node
+
+    ##-----------------------------------------
+
+    def reportError (self, typ, e): self._error_messages[typ] = e
+    def getError (self,type): return self._error_messages.get(type)
 
     ##-----------------------------------------
 
@@ -416,8 +422,9 @@ class Transport (dispatch.Dispatch):
             rc = s.connect(tuple(self._remote))
             ok = self.activateStream(s)
         except socket.error as e:
-            self.warn("Error in connection to {0}: {1}"
-                .format(str(self._remote), e))
+            msg = "Error in connection to {0}: {1}".format(str(self._remote), e)
+            self.warn(msg)
+            self.reportError('connect', msg)
         return ok
 
     ##-----------------------------------------

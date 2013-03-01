@@ -20,7 +20,7 @@ import random_json
 import socket
 from fmprpc.pipeliner import Pipeliner
 
-log.Levels.setDefault(log.Levels.DEBUG)
+log.Levels.setDefault(log.Levels.WARN)
 
 def random_string ():
     return random_json.Generator().string()
@@ -109,21 +109,21 @@ class TlsTest (unittest.TestCase):
         t = tls.TlsClientTransport(
             remote=fmprpc.InternetAddress(port = self.PORT),
             uid="max",
-            pw="yodwg")
+            pw="yodawg")
 
         ok = t.connect()
         self.assertTrue(ok)
         if ok:
-            p = Pipeliner(5)
+            p = Pipeliner(50)
             p.start()
             for i in range(n):
                 self.__call(p,i,t,genfn)
             results = p.flush()
 
     def test_volley_of_objects (self):
-        self.__runner(20, random_object)
+        self.__runner(200, random_object)
     def test_volley_of_strings (self):
-        self.__runner(50, random_string)
+        self.__runner(500, random_string)
 
     @classmethod
     def tearDownClass(klass):

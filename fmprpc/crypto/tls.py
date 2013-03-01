@@ -14,6 +14,9 @@ class TlsStreamWrapper (transport.ClearStreamWrapper):
     # Read and write to the TLS stream, and not the underlying TCP socket
     def stream (self):
         return self._tls_transport
+    def shutdownStream (self, x, force):
+        if self._tls_transport:
+            self._tls_transport.close()
 
 ##=======================================================================
 

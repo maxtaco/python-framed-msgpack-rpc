@@ -87,6 +87,15 @@ class ClearStreamWrapper (log.Base):
             self.reader = ConstantReader(self)
             self.reader.start()
 
+    def shutdownStream (self, x, force):
+        if force:
+            # Force the shutdown in the case of an explicit close
+            # or a transport going out of scope.  Shutting down
+            # the socket with this call will cause the ConstantReader
+            # loop to see and EOF and to exit.
+            x.shutdown(socket.SHUT_RDWR)
+        x.close()
+
     def close (self, force):
         """
         Return True if we did the actual close, and false otherwise
@@ -100,13 +109,8 @@ class ClearStreamWrapper (log.Base):
             if t:
                 t.dispatchReset()
                 t.packetizerReset()
-            if force:
-                # Force the shutdown in the case of an explicit close
-                # or a transport going out of scope.  Shutting down
-                # the socket with this call will cause the ConstantReader
-                # loop to see and EOF and to exit.
-                x.shutdown(socket.SHUT_RDWR)
-            x.close()
+
+            self.shutdownStream(x, force)
         return ret
 
     def write (self, msg):
@@ -390,6 +394,8 @@ class Transport (dispatch.Dispatch):
         # Server should catch exceptions in start, but clients won't.
         # In either case, only go ahead if start() returned True.
         if w.start():
+            ok = True
+
             # If optional hooks were specified, call them here; give as an
             # argument the new StreamWrapper so that way the subclass can
             # issue closes on the connection

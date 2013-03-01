@@ -77,7 +77,6 @@ class ClearStreamWrapper (log.Base):
         Activate this wrapper.  Do any necessary handshaking and also
         start the persistent reading thread to gather incoming data.
         """
-        print("Call into ClearStreamWrapper.start....")
         self.__launchConstantReader()
         return True
 
@@ -160,6 +159,7 @@ class Transport (dispatch.Dispatch):
         self._remote = remote
         self._tcp_opts = tcp_opts
         self._explicit_close = False
+        self._handshake_error = False
         self._parent = parent
 
         self._generation = 1
@@ -395,6 +395,11 @@ class Transport (dispatch.Dispatch):
             # issue closes on the connection
             if self._hooks and self._hooks.connected:
                 self._hooks.connected(w)
+        else:
+            self.info("start() failed in activateStream()")
+            self._handshake_error = True
+            ok = False
+        return ok
 
     ##-----------------------------------------
 
@@ -403,8 +408,7 @@ class Transport (dispatch.Dispatch):
         ok = False
         try:
             rc = s.connect(tuple(self._remote))
-            self.activateStream(s)
-            ok = True
+            ok = self.activateStream(s)
         except socket.error as e:
             self.warn("Error in connection to {0}: {1}"
                 .format(str(self._remote), e))
@@ -468,7 +472,7 @@ class RobustTransport (Transport):
     ##-----------------------------------------
 
     def reconnect(self, first_time):
-        if not self._explicit_close:
+        if not self._explicit_close and not self._handshake_error:
             self.__connectLoop(first_time)
 
     ##-----------------------------------------

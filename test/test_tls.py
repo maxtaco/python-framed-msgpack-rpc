@@ -106,7 +106,7 @@ class TlsTest (unittest.TestCase):
         t = tls.TlsClientTransport(
             remote=fmprpc.InternetAddress(port = self.PORT),
             uid="max",
-            password="yodawg")
+            pw="yodawg")
 
         ok = t.connect()
         self.assertTrue(ok)

@@ -14,7 +14,7 @@ class Listener (log.Base):
 
     def __init__(self, bindto, TransportClass=None, log_obj=None):
         self.bindto = bindto
-        self.TransportClass = TransportClass if TransportClass else transport.Transport
+        self._transport_klass = TransportClass if TransportClass else transport.Transport
 
         if not log_obj:
             log_obj = self.__defaultLogger()
@@ -33,7 +33,7 @@ class Listener (log.Base):
         self._dbgr = d
 
     def setTransportClass(self, klass):
-        self.TransportClass = klass
+        self._transport_klass = klass
 
     def setDebugFlags (self, f, apply_to_children):
         self.setDebugger(debug.makeDebugger(f, self.getLogger()))
@@ -49,7 +49,7 @@ class Listener (log.Base):
 
         # Note that we don't want to start listening on the stream yet, so 
         # we don't activate until after we install the handlers....
-        x = self.TransportClass(
+        x = self._transport_klass(
             remote = remote,
             parent = self,
             log_obj = self.makeNewLogObject(remote),

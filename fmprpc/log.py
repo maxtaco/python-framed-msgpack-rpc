@@ -108,5 +108,3 @@ def newDefaultLogger (**kwargs): return _defaultLoggerClass(**kwargs)
 
 ##=======================================================================
 
-x = Logger()
-x.debug("hello")

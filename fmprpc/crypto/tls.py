@@ -2,6 +2,7 @@
 import fmprpc.transport as transport
 from tlslite import TLSConnection
 from tlslite.errors import TLSRemoteAlert
+import fmrpc.log as log
 
 ##=======================================================================
 
@@ -47,7 +48,7 @@ class TlsClientStreamWrapper (TlsStreamWrapper):
                 p.info(msg)
                 p.reportError('handshake', msg)
         else:
-            p.warn("Transport was dead in TlsClientStreamWrapper.start")
+            self.warn("Transport was dead in TlsClientStreamWrapper.start")
         return ret
 
 ##=======================================================================

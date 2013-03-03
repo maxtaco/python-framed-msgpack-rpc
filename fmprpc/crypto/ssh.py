@@ -1,5 +1,6 @@
 
 import fmprpc.transport as transport
+import fmprpc.crypto.ssh_known_hosts as skh
 import paramiko
 import base64
 from binascii import hexlify
@@ -61,8 +62,12 @@ class SshClientTransport (tranport.Transport):
             t.start_client()
         except paramiko.SSHException as e:
             msg = "SSH channel negotiation failed: #{e}".format(e)
-            p.info(msg)
-            p.reportError('negotation', msg)
+            self.info(msg)
+            self.reportError('negotation', msg)
             return False
-
+        key = t.get_remote_server_key()
+        (ok, err) = skh.verify(self.remote().host, key)
+        if not ok:
+            self.reportError("hostAuth", err)
+            return False
 

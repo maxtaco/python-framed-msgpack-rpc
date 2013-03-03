@@ -2,19 +2,30 @@
 import os.path
 import paramiko
 import fmprpc.log as log
+from hashlib import sha1
+from hmac import HMAC
 
 class KnownHostsRegistry (log.Base):
 
     def __init__ (self):
         log.Base.__init__(self, log.newDefaultLogger(prefix="SshKnownHosts"))
         self.hosts = {}
+        self.hashes = []
 
     def load (self):
         self.__loadOne(".ssh")
         self.__loadOne("ssh")
         if len(self.hosts) is 0:
             self.warn("Could not load any known SSH hosts; failure ahead")
+        self.__findHashes()
         return self
+
+    def __findHashes(self):
+        for k in self.hosts.keys():
+            parts = k.split("|")
+            if len(parts) is 4 and parts[1] is "1":
+                v = [ p.decode('base64') for p in parts[2:4]]
+                self.hashes.append(tuple([k] + v))
 
     def __loadOne(self, dir):
         f = os.path.expanduser(os.path.join("~", dir, "known_hosts"))
@@ -22,15 +33,33 @@ class KnownHostsRegistry (log.Base):
             tmp = paramiko.util.load_host_keys(f) 
             self.hosts.update(tmp)
 
+    def __findHashedHostname(self,hostname):
+        for (key,salt,res) in self.hashes:
+            hmac = HMAC(salt, None, sha1)
+            hmac.update(hostname)
+            ours = hmac.digest()
+            if ours == res:
+                return self.hosts.get(key)
+        return None
+
+    def lookup (self, hostname):
+        row = self.hosts.get(hostname)
+        if not row:
+            row = self.__findHashedHostname(hostname)
+        return row
+
     def verify (self, hostname, theirs):
         ok = False
         err = None
-        row = self.hosts.get(hostname)
+        typ = theirs.get_name()
+
+        row = self.lookup(hostname)
+
         if row:
             # get_name() return the type of key, like 'ssh-rsa'
             # or 'ssh-dsa', etc...
-            typ = theirs.get_name()
             ours = row.get(typ)
+
         if not row:
             err = "No keys found for hostname {h}"
         elif not ours:

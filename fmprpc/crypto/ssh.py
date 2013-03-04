@@ -97,7 +97,7 @@ class SshClientTransport (transport.Transport):
     ##-----------------------------------------
 
     def __tryKey(self, k):
-        kobj = ssh_key.Privkey(shortfile=k)
+        kobj = ssh_key.SshPrivkey(shortfile=k)
         return kobj.run(uid = self.uid, transport = t)
 
     ##-----------------------------------------

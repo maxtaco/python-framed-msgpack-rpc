@@ -19,6 +19,8 @@ import fmprpc.server as server
 import fmprpc.err as err
 import random_json
 import socket
+import os
+import os.path
 from fmprpc.pipeliner import Pipeliner
 
 ##=======================================================================
@@ -42,24 +44,33 @@ AGENT_USER = os.environ["USER"]
 
 ##=======================================================================
 
-class Server (server.ContextualServer, threading.Thread, ssh.ServerBase):
+class Server (threading.Thread, server.ContextualServer, ssh.ServerBase):
 
     def __init__ (self, port, prog, cond):
+
+        # Establish treading
         threading.Thread.__init__(self)
         self.daemon = True
         self.cond = cond
+
+        # Set up RPC routing
         classes = { prog : P_v1 }
         bindto = fmprpc.OpenServerAddress(port = port)
         server.ContextualServer.__init__(self, classes=classes, bindto=bindto)
-        self.pubkeys = {}
-        self.keyfiles = {}
+
         # Commit this server to accepting only TLS connections
         ssh.ServerBase.__init__(self)
+
+        # Now go ahead and load in all keys needed -- both client and server ---
+        # to run the experiment
+        self.pubkeys = {}
+        self.keyfiles = {}
+        self.loadKeys()
 
     def loadKeys(self):
         # First load in the server key
         cwd = os.path.dirname(__file__)
-        sk = os.path.join(cwd, "keys", "test_ssh_rsa")
+        sk = os.path.join(cwd, "keys", "server_rsa")
         if not self.readRsaKey(sk):
             raise err.ServerKeyError("cannot find {0}".format(sk))
 
@@ -84,7 +95,7 @@ class Server (server.ContextualServer, threading.Thread, ssh.ServerBase):
         # the local directory
         f = os.path.join(cwd, "keys", "id_dsa")
         self.keyfiles["d"] = f
-        keyobj = ssh.Pubkey(fullfile=f)
+        keyobj = ssh_key.SshPrivkey(fullfile=f)
         (ok,e) = keyobj.run()
         if not ok: raise err.ClientKeyError(e)
         self.pubkeys["d"] = keyobj.key
@@ -137,7 +148,7 @@ class TlsTest (unittest.TestCase):
         p.push(f)
 
     def __runner(self, n, genfn, uid, key):
-        t = tls.SshClientTransport(
+        t = ssh.SshClientTransport(
             remote=fmprpc.InternetAddress(port = self.PORT),
             uid=uid,
             key=key,
@@ -159,7 +170,7 @@ class TlsTest (unittest.TestCase):
         self.__runner(50, random_string, "d", self.server.keyfiles["d"])
 
     def test_bad_login_bad_client_auth (self):
-        t = tls.SshClientTransport(
+        t = ssh.SshClientTransport(
             remote=fmprpc.InternetAddress(port = self.PORT),
             uid="b",
             known_hosts=self.server.khr_good,
@@ -169,7 +180,7 @@ class TlsTest (unittest.TestCase):
         self.assertTrue(t.getError('clientAuth'))
 
     def test_bad_login_bad_host_auth (self):
-        t = tls.SshClientTransport(
+        t = ssh.SshClientTransport(
             remote=fmprpc.InternetAddress(port = self.PORT),
             uid=AGENT_USER,
             known_hosts=self.server.khr_bad)

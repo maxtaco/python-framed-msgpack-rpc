@@ -51,9 +51,9 @@ class KnownHostsRegistry (log.Base):
             row = self.__findHashedHostname(hostname)
         return row
 
-    def add(self, host, typ, key):
-        self.hosts[host] = { typ : key }
-        self.__findHash(key)
+    def add(self, host, type, key):
+        self.hosts[host] = { type : key }
+        self.__findHash(host)
 
     def verify (self, hostname, theirs):
         ok = False

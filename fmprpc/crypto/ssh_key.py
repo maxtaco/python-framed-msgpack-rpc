@@ -16,17 +16,17 @@ class Dir (object):
         for d in [ os.path.join(home, d) for d in [".ssh", "ssh"] ] :
             if os.path.exists(d):
                 self.d = d
-                return true
+                return True
         return False
 
-    def key(self, k, klass):
+    def key(self, k, klass=None):
         p = os.path.join(self.d, k)
         if not klass:
             rxx = re.compile("\.pub$")
             if rxx.search(p):
-                klass = Pubkey
+                klass = SshPubkey
             else:
-                klass = Privkey
+                klass = SshPrivkey
         return klass(fullfile=p)
 
     def usuals(self):
@@ -39,7 +39,7 @@ class Base (object):
         self.fullfile = fullfile
         self.shortfile = shortfile if shortfile else fullfile
         self.raw = None
-        self.err = None
+        self._err = None
         self.key = None
 
     def resolve(self):
@@ -56,7 +56,7 @@ class Base (object):
         if os.path.exists(f) and os.path.isfile(f):
             try:
                 fh = open(f, "r")
-                self.raw= fh.readlines()
+                self.raw = fh.readlines()
                 return True
             except IOError as e:
                 self._err = "cannot find key"
@@ -64,7 +64,7 @@ class Base (object):
 
 ##=======================================================================
 
-class Pubkey (Base):
+class SshPubkey (Base):
     def __init__(self, shortfile = None, fullfile = None):
         Base.__init__ (self, shortfile = shortfile, fullfile = fullfile)
 
@@ -75,42 +75,47 @@ class Pubkey (Base):
             self.key = paramiko.RSAKey(data=base64.decodestring(b))
             ret = True
         else:
+            self._err = "keyfile was in wrong format (expected 3 fields, space-delimited)"
             ret = False
         return ret
 
-    def run(self, uid, transport):
-        ret =  self.resolve()  \
-           and self.find()     \
-           and self.load()           
+    def run(self):
+        ret = self.resolve() \
+          and self.find()    \
+          and self.load()           
         err = None if ret else self.error()
         return (ret, err) 
 
 ##=======================================================================
 
-class Privkey(Base):
+class SshPrivkey(Base):
 
     def __init__ (self, shortfile = None, fullfile = None):
         Base.__init__ (self, shortfile = shortfile, fullfile = fullfile)
         self.klass = None
 
     def classify(self):
-        line1 = self.raw[0]
+        line = self.raw[0]
+        ok = True
         if line.find("RSA") >= 0:
             self.klass = paramiko.RSAKey
         elif line.find("DSA") >= 0:
             self.klass = paramiko.DSSKey
         else:
+            ok = False
             self._err = "cannot classify key"
+        return ok
 
     def load(self):
         try:
-            self.key = self.klass.from_private_key(self.fullfile)
+            self.key = self.klass.from_private_key(self.raw)
         except paramiko.PasswordRequiredException as e:
             try:
                 pw = getpass.getpass("Passphrase for key {0}: ".format(self.shortfile))
                 self.key = self.klass.from_private_key_file(self.fullfile, pw)
             except paramiko.SSHException as e:
                 self._err = "Bad passphrase"
+        return self.key
 
     def auth(self, username, t):
         try:
@@ -118,12 +123,13 @@ class Privkey(Base):
         except SSHException as e:
             self._err = "Authentication failed: {0}".format(e)
 
-    def run(self, uid, transport):
-        ret =  self.resolve()        \
-           and self.find()           \
-           and self.classify()       \
-           and self.load()           \
-           and self.auth(uid, transport)
+    def run(self, uid = None, transport = None):
+        ret = self.resolve()  \
+          and self.find()     \
+          and self.classify() \
+          and self.load()
+        if ret and uid and transport:
+           ret = self.auth(uid, transport)
         err = None if ret else self.error()
         return (ret, err) 
 

@@ -43,6 +43,9 @@ class KnownHostsRegistry (log.Base):
         return None
 
     def lookup (self, hostname):
+        """Find a row for the given hostname; either in plaintext
+        or as  hashed hostname as per Jayeon's patch to ssh, which is
+        standard on Linux but not on Mac."""
         row = self.hosts.get(hostname)
         if not row:
             row = self.__findHashedHostname(hostname)
@@ -78,6 +81,9 @@ def singleton():
     global _s
     if not _s: _s = KnownHostsRegistry().load()
     return _s
+
+def lookup(hostname):
+    return singleton().lookup(hostname)
 
 def verify(hostname, theirs):
     return singleton().verify(hostname, theirs)

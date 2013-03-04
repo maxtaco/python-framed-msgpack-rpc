@@ -5,7 +5,7 @@ try:
     import fmprpc.crypto.tls as tls
     import tlslite.errors as tlsle
 except ImportError as e:
-    raise 
+    pass
 
 import sys
 sys.path.append("../")

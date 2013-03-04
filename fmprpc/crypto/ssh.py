@@ -37,7 +37,7 @@ class SshClientStreamWrapper(SshStreamWrapper):
         ret = False
         if not p:
             self.warn("Transport was dead in SshClientStreamWrapper")
-        else if p.doSshHandshake(tc):
+        elif p.doSshHandshake(tc):
             self._ssh_transport = tc
             transport.ClearStreamWrapper.start(self)
             ret = True
@@ -47,7 +47,7 @@ class SshClientStreamWrapper(SshStreamWrapper):
 
 ##=======================================================================
 
-class SshClientTransport (tranport.Transport):
+class SshClientTransport (transport.Transport):
     def __init__ (self, **kwargs):
         self.uid = kwargs.pop("uid")
         if kwargs.has_key("key"):
@@ -55,6 +55,10 @@ class SshClientTransport (tranport.Transport):
             self.key = kwargs.pop("key")
         else:
             self.key = None
+        if kwargs.hash_key("known_hosts"):
+            self.khr  = kwargs.pop("known_hosts")
+        else:
+            self.khr = skh.singleton()
         tranport.Transport.__init__ (self, **kwargs)
         self._ssh_session = None
         self.setWrapperClass(SshClientStreamWrapper)
@@ -78,7 +82,7 @@ class SshClientTransport (tranport.Transport):
     ##-----------------------------------------
 
     def __tryUsualKeys(self, t):
-        d = ssh_key.SshDir()
+        d = ssh_key.Dir()
         ret = False
         err = None
         if not d.find():
@@ -93,7 +97,7 @@ class SshClientTransport (tranport.Transport):
     ##-----------------------------------------
 
     def __tryKey(self, k):
-        kobj = ssh_key.Key(shortfile=k)
+        kobj = ssh_key.Privkey(shortfile=k)
         return kobj.run(uid = self.uid, transport = t)
 
     ##-----------------------------------------
@@ -113,7 +117,7 @@ class SshClientTransport (tranport.Transport):
             self.reportError('negotation', msg)
             return False
         key = t.get_remote_server_key()
-        (ok, err) = skh.verify(self.remote().host, key)
+        (ok, err) = self.khr.verify(self.remote().host, key)
         if not ok:
             self.reportError("hostAuth", err)
             return False
@@ -139,3 +143,116 @@ class SshClientTransport (tranport.Transport):
 
 ##=======================================================================
 
+class SshServerStreamWrapper (SshStreamWrapper):
+    def __init__(self, s, transport):
+        SshStreamWrapper.__init__ (self, s, transport)
+
+    def start(self):
+        ssht = paramiko.Transport(self._socket)
+        chan = None
+        p = self.transport()
+        if p: chan = p.doSshHandshake(ssht)
+        if chan:
+            self._ssh_transport = chan
+            transport.ClearStreamWrapper.start(self)
+            ret = True 
+        else:
+            ret = False
+        return ret
+
+##=======================================================================
+
+class SshServerTransport (transport.Transport, paramiko.ServerInterface):
+    def __init__(self, **kwargs):
+        transport.Transport.__init__ (self, **kwargs)
+        self.setWrapperClass(SshServerStreamWrapper)
+
+    def check_channel_request(self, kind, chanid):
+        if kind == 'session':
+            ret = paramiko.OPEN_SUCCEEDED
+        else:
+            self.warn("Reject open request for channel {0}/{1}"
+                .format(kind, chanid))
+            ret = paramiko.OPEN_FAILED_ADMINISTRATIVELY_PROHIBITED
+        return ret
+
+    def check_auth_password(self, username, pw):
+        self.warn("Rejecting PW login attempt by {0} w/ {1}"
+                .format(username, pw))
+        return paramiko.AUTH_FAILED
+
+    def get_allowed_auths(self, username): return 'publickey'
+
+    def check_channel_shell_request(self, channel): return False
+
+    def check_channel_pty_request(self, channel, term, width, height, pixelwidth,
+                                  pixelheight, modes):
+        return False
+
+    def check_auth_publickey(self, username, password):
+        if self._parent:
+            ret = self._parent.sshCheckAuthPublickey(username, key)
+        else:
+            self.warn("Auth pubkey failed due to dead parent for {0}".format(username))
+            ret = paramiko.AUTH_FAILED
+        return ret
+
+    def doSshHandshake(self, ssht):
+        chan = None
+        if _parent:
+            # Call up to tohe subclassed Server class for this...
+            self._parent.sshAddServerKey(ssht)
+            w = self._parent.sshGetAcceptTimeout()
+            try:
+                ssht.start_server(server = self)
+                chan = ssht.accept(self._parent.sshGetAcceptTimeout())
+                if chan is None:
+                    self.warn("Failed to get an SSH channel")
+            except paramiko.SSHException as e:
+                self.warn("SSH negotiation failed: #{0}".format(e))
+        else:
+            self.warn("Dead parent in doSshHandshake()")
+        return chan
+
+##=======================================================================
+
+def enableServer(obj):
+    """Call this function on an fmprpc.Server object to enable/require
+    SSH on all incoming connections on this server.
+    """
+
+    methods = [ "sshAddServerKey", "sshGetAcceptTimeout", "sshCheckAuthPublickey"]
+    for m in methods:
+        if not hasattr(obj, m):
+            raise NotImplementedError, "Server doesn't implement {0}".format(m)
+
+    obj.setTransportClass(SshServerTransport)
+
+##=======================================================================
+
+class ServerBase (object):
+
+    def __init__ (self):
+        self._key = None
+        enableServer(self)
+
+    def readRsaKey (self, fn):
+        ret = False
+        try: 
+            self._key = paramiko.RSAKey(filename=fn)
+            ret = True
+        except IOError as e:
+            pass
+        return ret
+
+    def readDsaKey (self, fn):
+        ret = False
+        try: 
+            self._key = paramiko.RSAKey(filename=fn)
+            ret = True
+        except IOError as e:
+            pass
+        return ret
+
+    def sshGetAcceptTimeout(self): return 60
+    def sshAddServerKey(self, ssht): ssht.add_server_key(self._key)

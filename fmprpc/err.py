@@ -12,3 +12,5 @@ class RpcCallError(Error): pass
 class PipelinerError(Error): pass
 class AuthenticationError(Error): pass
 class DeadTransportError(Error): pass
+class ServerKeyError(Error): pass
+class ClientKeyError(Error): pass

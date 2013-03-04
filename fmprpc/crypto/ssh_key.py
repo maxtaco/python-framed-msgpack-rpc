@@ -2,10 +2,12 @@
 import paramiko
 import os.path
 import os
+import re
+import base64
 
 ##=======================================================================
 
-class SshDir (object):
+class Dir (object):
     def __init__ (self):
         self.d = None
 
@@ -17,25 +19,28 @@ class SshDir (object):
                 return true
         return False
 
-    def key(self, k):
+    def key(self, k, klass):
         p = os.path.join(self.d, k)
-        return SshKey(fullfile=p)
+        if not klass:
+            rxx = re.compile("\.pub$")
+            if rxx.search(p):
+                klass = Pubkey
+            else:
+                klass = Privkey
+        return klass(fullfile=p)
 
     def usuals(self):
         return [ self.key(n) for n in ("id_rsa", "id_dsa" ) ]
 
 ##=======================================================================
 
-class SshKey (object):
-
+class Base (object):
     def __init__ (self, shortfile = None, fullfile = None):
         self.fullfile = fullfile
         self.shortfile = shortfile if shortfile else fullfile
         self.raw = None
-        self.key = None
-        self.errors = {}
-        self.klass = None
         self.err = None
+        self.key = None
 
     def resolve(self):
         self.fullfile = os.path.expanduser(self.shortfile)
@@ -51,11 +56,42 @@ class SshKey (object):
         if os.path.exists(f) and os.path.isfile(f):
             try:
                 fh = open(f, "r")
-                dat = fh.readlines()
+                self.raw= fh.readlines()
                 return True
             except IOError as e:
                 self._err = "cannot find key"
         return False
+
+##=======================================================================
+
+class Pubkey (Base):
+    def __init__(self, shortfile = None, fullfile = None):
+        Base.__init__ (self, shortfile = shortfile, fullfile = fullfile)
+
+    def load(self):
+        parts = self.raw[0].split()
+        if len(parts) == 3:
+            [self.type, b, self.name ] = parts
+            self.key = paramiko.RSAKey(data=base64.decodestring(b))
+            ret = True
+        else:
+            ret = False
+        return ret
+
+    def run(self, uid, transport):
+        ret =  self.resolve()  \
+           and self.find()     \
+           and self.load()           
+        err = None if ret else self.error()
+        return (ret, err) 
+
+##=======================================================================
+
+class Privkey(Base):
+
+    def __init__ (self, shortfile = None, fullfile = None):
+        Base.__init__ (self, shortfile = shortfile, fullfile = fullfile)
+        self.klass = None
 
     def classify(self):
         line1 = self.raw[0]

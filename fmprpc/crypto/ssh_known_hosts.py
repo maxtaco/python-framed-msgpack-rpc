@@ -22,10 +22,13 @@ class KnownHostsRegistry (log.Base):
 
     def __findHashes(self):
         for k in self.hosts.keys():
-            parts = k.split("|")
-            if len(parts) is 4 and parts[1] is "1":
-                v = [ p.decode('base64') for p in parts[2:4]]
-                self.hashes.append(tuple([k] + v))
+            self.__findHash(k)
+
+    def __findHash(self, k):
+        parts = k.split("|")
+        if len(parts) is 4 and parts[1] is "1":
+            v = [ p.decode('base64') for p in parts[2:4]]
+            self.hashes.append(tuple([k] + v))
 
     def __loadOne(self, dir):
         f = os.path.expanduser(os.path.join("~", dir, "known_hosts"))
@@ -47,6 +50,10 @@ class KnownHostsRegistry (log.Base):
         if not row:
             row = self.__findHashedHostname(hostname)
         return row
+
+    def add(self, host, typ, key):
+        self.hosts[host] = { typ : key }
+        self.__findHash(key)
 
     def verify (self, hostname, theirs):
         ok = False

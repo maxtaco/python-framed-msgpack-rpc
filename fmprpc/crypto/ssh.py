@@ -16,9 +16,12 @@ class SshStreamWrapper (transport.ClearStreamWrapper):
     def __init__(self, s, t):
         transport.ClearStreamWrapper.__init__(self, s, t)
         self._ssh_transport = None
+        self._ssh_channel = None
     def stream (self):
-        return self._ssh_transport
+        return self._ssh_channel
     def shutdownStream (self, x, force):
+        if self._ssh_channel:
+            self._ssh_channel.close()
         if self._ssh_transport:
             self._ssh_transport.close()
 
@@ -40,6 +43,7 @@ class SshClientStreamWrapper(SshStreamWrapper):
             self.warn("Transport was dead in SshClientStreamWrapper")
         elif p.doSshHandshake(tc):
             self._ssh_transport = tc
+            self._ssh_channel = tc.open_session()
             transport.ClearStreamWrapper.start(self)
             ret = True
         else:
@@ -73,17 +77,17 @@ class SshClientTransport (transport.Transport):
         agent = paramiko.Agent()
         keys = agent.get_keys()
         ret = False
-        for key in agent_keys:
+        for key in keys:
             fp = hexlify(key.get_fingerprint())
-            self.info("Trying ssh-agent key {0}".format(fp))
+            self.info("Trying ssh-agent key {0} {1}".format(fp, key.get_base64()))
             try:
-                t.auth_publickey(self.uid, k)
+                t.auth_publickey(self.uid, key)
                 self.info("Key succeeded: {0}".format(fp))
                 ret = True
                 break
-            except paramiko.SSHException:
-                self.info("Key failed ({0})".format(fp))
-        self.debug("+ __doAgentAuth -> {0}".format(ret))
+            except paramiko.SSHException as e:
+                self.info("Key failed ({0}): {1}".format(fp, e))
+        self.debug("- __doAgentAuth -> {0}".format(ret))
         return ret
 
     ##-----------------------------------------
@@ -126,11 +130,7 @@ class SshClientTransport (transport.Transport):
               self.__doHostAuth(t) and \
               self.__doClientAuth(t)
 
-        if ret:
-            self._ssh_transport = t
-            transport.Transport.start(self)
-
-        self.info("- doSshHandshake / status={0}".format(ret))
+        self.info("- doSshHandshake -> {0}".format(ret))
         return ret
 
     ##-----------------------------------------
@@ -174,8 +174,10 @@ class SshClientTransport (transport.Transport):
             (ok, err) = self.__tryKey(key=self.key, transport=t)
             if not ok:
                 self.warn("Failed to authenticate with key {0}".format(self.key))
-        elif not self.__doAgentAuth(t):
-                (ok, err) = self.__tryUsualKeys(t)
+        elif self.__doAgentAuth(t):
+            ok = True
+        else:
+            (ok, err) = self.__tryUsualKeys(t)
 
         if not ok:
             self.warn("In client authentication: {0}".format(err))
@@ -232,9 +234,12 @@ class SshServerTransport (transport.Transport, paramiko.ServerInterface):
                                   pixelheight, modes):
         return False
 
-    def check_auth_publickey(self, username, password):
+    def check_auth_publickey(self, username, key):
+        fp = hexlify(key.get_fingerprint())
+        self.debug("+ check_auth_publickey {0}@{1}".format(username, fp))
         if self._parent:
             ret = self._parent.sshCheckAuthPublickey(username, key)
+            self.debug("- check_auth_publickey {0}@{1} -> {2}".format(username, fp, ret))
         else:
             self.warn("Auth pubkey failed due to dead parent for {0}".format(username))
             ret = paramiko.AUTH_FAILED

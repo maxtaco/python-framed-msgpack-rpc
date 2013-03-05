@@ -6,6 +6,11 @@ from hashlib import sha1
 from hmac import HMAC
 
 class KnownHostsRegistry (log.Base):
+    """
+    Read in the user's SSH known_hosts file, and perform lookups,
+    on either plaintext hostnames, or those that have been obscured
+    with known_hosts hashing (see here: http://nms.csail.mit.edu/projects/ssh/)
+    """
 
     def __init__ (self):
         log.Base.__init__(self, log.newDefaultLogger(prefix="SshKnownHosts"))

@@ -44,7 +44,10 @@ class Base (object):
         self.key = None
 
     def resolve(self):
-        self.fullfile = os.path.expanduser(self.shortfile)
+        ff = os.path.expanduser(self.shortfile)
+        if len(ff) and ff[0] != os.path.sep:
+            ff = os.path.join(os.getcwd(), ff)
+        self.fullfile = os.path.normpath(ff)
         return True
 
     def error (self):

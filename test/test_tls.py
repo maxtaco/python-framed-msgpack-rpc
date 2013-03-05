@@ -7,6 +7,8 @@ try:
 except ImportError as e:
     tlslite = None
 
+##=======================================================================
+
 import sys
 sys.path.append("../")
 import unittest
@@ -20,6 +22,8 @@ import random_json
 import socket
 from fmprpc.pipeliner import Pipeliner
 
+##=======================================================================
+
 log.Levels.setDefault(log.Levels.WARN)
 
 def random_string ():
@@ -30,6 +34,8 @@ def random_object ():
 class P_v1 (server.Handler):
     def h_reflect (self, b):
         b.reply(b.arg)
+
+##=======================================================================
 
 Passwords = {
     "max" : "yodawg",
@@ -43,6 +49,8 @@ class Verifier (dict):
             self.insert(n,p)
     def insert(self, uid, pw):
         self[uid] = tlslite.mathtls.makeVerifier(uid,pw,2048)
+
+##=======================================================================
 
 class Server (server.ContextualServer, threading.Thread):
 
@@ -78,6 +86,8 @@ class Server (server.ContextualServer, threading.Thread):
         self.listen(self.cond)
     def stop(self):
         self.close()
+
+##=======================================================================
 
 @unittest.skipUnless(tlslite, "skipped since tlslite wasn't found")
 class TlsTest (unittest.TestCase):
@@ -144,6 +154,8 @@ class TlsTest (unittest.TestCase):
     def tearDownClass(klass):
         klass.server.stop()
         del klass.server
+        
+##=======================================================================
 
 if __name__ == "__main__":
     unittest.main()

@@ -6,7 +6,9 @@ try:
     import fmprpc.crypto.ssh_key as ssh_key
     import fmprpc.crypto.ssh_known_hosts as skh
 except ImportError as e:
-    pass
+    paramiko = None
+
+##=======================================================================
 
 import sys
 sys.path.append("../")
@@ -25,7 +27,12 @@ from fmprpc.pipeliner import Pipeliner
 
 ##=======================================================================
 
-log.Levels.setDefault(log.Levels.ERROR)
+# The SSH libraries will warn on various unexpected authentication
+# problems, so we'll have to crank this one up to ERROR rather than
+# WARN.
+g_log_level = log.Levels.ERROR
+
+log.Levels.setDefault(g_log_level)
 paramiko.util.log_to_file('test_ssh.log')
 logo = log.newDefaultLogger(prefix="Tester")
 
@@ -49,6 +56,7 @@ AGENT_USER = os.environ["USER"]
 class Server (threading.Thread, server.ContextualServer, ssh.ServerBase):
 
     def __init__ (self, port, prog, cond):
+        global g_log_level
 
         # Establish treading
         threading.Thread.__init__(self)
@@ -62,6 +70,7 @@ class Server (threading.Thread, server.ContextualServer, ssh.ServerBase):
 
         # Commit this server to accepting only TLS connections
         ssh.ServerBase.__init__(self)
+        self.log_obj.setLevel(g_log_level)
 
         # Now go ahead and load in all keys needed -- both client and server ---
         # to run the experiment
@@ -82,7 +91,12 @@ class Server (threading.Thread, server.ContextualServer, ssh.ServerBase):
         khr = skh.KnownHostsRegistry()
         khr.add(host = "127.0.0.1", type = "ssh-rsa", key = self._key)
         self.khr_good = khr
+
+        # Make a Known Hosts registry from the usual place, but don't make it 
+        # warn since it might not have a hey for localhost (by design)
         self.khr_bad = skh.singleton()
+        global g_log_level
+        self.khr_bad.getLogger().setLevel(g_log_level)
 
         # load in pubkey for id_rsa.pub (which should be loaded in via agent)
         dir = ssh_key.Dir()
@@ -150,11 +164,13 @@ class TlsTest (unittest.TestCase):
         p.push(f)
 
     def __runner(self, n, genfn, uid, key):
+        global g_log_level
         t = ssh.SshClientTransport(
             remote=fmprpc.InternetAddress(port = self.PORT),
             uid=uid,
             key=key,
             known_hosts=self.server.khr_good)
+        t.getLogger().setLevel(g_log_level)
         ok = t.connect()
         self.assertTrue(ok)
         if ok:
@@ -181,6 +197,8 @@ class TlsTest (unittest.TestCase):
             uid="b",
             known_hosts=self.server.khr_good,
             key=self.server.keyfiles["b"])
+        global g_log_level
+        t.getLogger().setLevel(g_log_level)
         ok = t.connect()
         self.assertTrue(not ok)
         self.assertTrue(t.getError('clientAuth'))
@@ -191,6 +209,8 @@ class TlsTest (unittest.TestCase):
             remote=fmprpc.InternetAddress(port = self.PORT),
             uid=AGENT_USER,
             known_hosts=self.server.khr_bad)
+        global g_log_level
+        t.getLogger().setLevel(g_log_level)
         ok = t.connect()
         self.assertTrue(not ok)
         self.assertTrue(t.getError('hostAuth'))

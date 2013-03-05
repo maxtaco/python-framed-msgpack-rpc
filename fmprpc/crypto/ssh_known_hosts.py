@@ -12,6 +12,9 @@ class KnownHostsRegistry (log.Base):
         self.hosts = {}
         self.hashes = []
 
+    def __str__(self):
+        return "KnownHostsRegistry: {0}".format(repr(self.hosts))
+
     def load (self):
         self.__loadOne(".ssh")
         self.__loadOne("ssh")
@@ -59,7 +62,6 @@ class KnownHostsRegistry (log.Base):
         ok = False
         err = None
         typ = theirs.get_name()
-
         row = self.lookup(hostname)
 
         if row:

@@ -69,18 +69,22 @@ class SshClientTransport (transport.Transport):
     ##-----------------------------------------
 
     def __doAgentAuth(self, t):
+        self.debug("+ __doAgentAuth")
         agent = paramiko.Agent()
         keys = agent.get_keys()
+        ret = False
         for key in agent_keys:
             fp = hexlify(key.get_fingerprint())
             self.info("Trying ssh-agent key {0}".format(fp))
             try:
                 t.auth_publickey(self.uid, k)
                 self.info("Key succeeded: {0}".format(fp))
-                return True
+                ret = True
+                break
             except paramiko.SSHException:
                 self.info("Key failed ({0})".format(fp))
-        return False
+        self.debug("+ __doAgentAuth -> {0}".format(ret))
+        return ret
 
     ##-----------------------------------------
 
@@ -100,6 +104,7 @@ class SshClientTransport (transport.Transport):
     ##-----------------------------------------
 
     def __tryKey(self, k):
+        self.debug("+ __tryKey {0}".format(k))
         kobj = ssh_key.SshPrivkey(shortfile=k)
         return kobj.run(uid = self.uid, transport = t)
 
@@ -111,45 +116,68 @@ class SshClientTransport (transport.Transport):
         public key; and (2) authenticating the client to the
         user."""
 
-        self.info("Calling SSH channel negotation")
+        self.info("+ doSshHandshake")
+
+        ret = self.__negotiateChannel(t) and \
+              self.__doHostAuth(t) and \
+              self.__doClientAuth(t)
+
+        if ret:
+            self._ssh_transport = t
+            transport.Transport.start(self)
+
+        self.info("- doSshHandshake / status={0}".format(ret))
+        return ret
+
+    ##-----------------------------------------
+
+    def __negotiateChannel(self, t):
+        self.info("+ __negotiateChannel")
         try:
-            self.debug("++ doSshHandshake start_client")
             t.start_client()
-            self.debug("-- doSshHandshake start_client")
+            ret = True
         except paramiko.SSHException as e:
             msg = "SSH channel negotiation failed: #{e}".format(e)
             self.info(msg)
             self.reportError('negotation', msg)
-            return False
-        self.info("+ get_remote_server_key")
+        self.debug ("- __negotiateChannel -> {0}".format(ret))
+        return ret
+
+    ##-----------------------------------------
+
+    def __doHostAuth(self, t):
+        self.info ("+ __doHostAuth")
         key = t.get_remote_server_key()
-        self.info("- get_remote_server_key -> {0}".format(key.get_base64()))
-        (ok, err) = self.khr.verify(self.remote().host, key)
+        self.info("Got remote server key: {0}".format(key.get_base64()))
+        self.debug("++ verify key via known_hosts: {0}".format(self.khr))
+        (ok, err) = self.khr.verify(self._remote.host, key)
         if not ok:
             self.reportError("hostAuth", err)
             self.warn("Failed to verify host {0}: {1}".format(err))
-            return False
+        self.debug("+ __doHostAuth -> {0}".format(ok))
+        return ok
+
+    ##-----------------------------------------
+
+    def __doClientAuth(self, t):
 
         # Now try the various attempts at client auth:
         #  1. First try the supplied key
         #  2. Then try the user's agent.
         #  3. Finally, try the default keys....
-        self.info("+ Client authorization")
+        self.info("+ __doClientAuth")
         if self.key:
             (ok, err) = self.__tryKey(t, self.key)
             if not ok:
                 self.warn("Failed to authenticate with key {0}".format(self.key))
         elif not self.__doAgentAuth(t):
             (ok, err) = self.__tryUsualKeys(t)
-        self.info("- client authorization")
 
         if not ok:
             self.warn("In client authentication: {0}".format(err))
             self.reportError("clientAuth", err)
-        else:
-            self._ssh_transport = t
-            transport.Transport.start(self)
-        self.info("- SSH channel negotation with/ status={0}".format(ok))
+            
+        self.info("- __doClientAuth -> {0}".format(ok))
         return ok
 
 ##=======================================================================

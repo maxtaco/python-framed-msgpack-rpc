@@ -47,7 +47,7 @@ class Base (object):
         return True
 
     def error (self):
-        return "{0}: {1}".format(self.shotfile, self._err) if self._err else None
+        return "{0}: {1}".format(self.shortfile, self._err) if self._err else None
 
     def isLoaded (self): return self.key
 
@@ -118,10 +118,13 @@ class SshPrivkey(Base):
         return self.key
 
     def auth(self, username, t):
+        ret = False
         try:
             t.auth_publickey(username, self.key)
-        except SSHException as e:
-            self._err = "Authentication failed: {0}".format(e)
+            ret = True
+        except paramiko.SSHException as e:
+            self._err = str(e)
+        return ret
 
     def run(self, uid = None, transport = None):
         ret = self.resolve()  \
@@ -129,7 +132,8 @@ class SshPrivkey(Base):
           and self.classify() \
           and self.load()
         if ret and uid and transport:
-           ret = self.auth(uid, transport)
+            ret = self.auth(uid, transport)
         err = None if ret else self.error()
+        print "returning .... {0} {1}".format(ret, err)
         return (ret, err) 
 

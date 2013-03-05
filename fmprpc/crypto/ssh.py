@@ -89,6 +89,7 @@ class SshClientTransport (transport.Transport):
     ##-----------------------------------------
 
     def __tryUsualKeys(self, t):
+        self.debug("+ __tryUsualKeys")
         d = ssh_key.Dir()
         ret = False
         err = None
@@ -99,14 +100,17 @@ class SshClientTransport (transport.Transport):
                 (ret, err) = kobj.run(uid = self.uid, transport = t)
                 if ret:
                     break
+        self.debug("- __tryUsualKeys -> {0}".format(ret))
         return (ret, err)
 
     ##-----------------------------------------
 
-    def __tryKey(self, k):
-        self.debug("+ __tryKey {0}".format(k))
-        kobj = ssh_key.SshPrivkey(shortfile=k)
-        return kobj.run(uid = self.uid, transport = t)
+    def __tryKey(self, transport, key):
+        self.debug("+ __tryKey '{0}'".format(key))
+        kobj = ssh_key.SshPrivkey(shortfile=key)
+        ret = kobj.run(uid = self.uid, transport = transport)
+        self.debug("+ __tryKey -> {0}".format(ret))
+        return ret
 
     ##-----------------------------------------
 
@@ -167,11 +171,11 @@ class SshClientTransport (transport.Transport):
         #  3. Finally, try the default keys....
         self.info("+ __doClientAuth")
         if self.key:
-            (ok, err) = self.__tryKey(t, self.key)
+            (ok, err) = self.__tryKey(key=self.key, transport=t)
             if not ok:
                 self.warn("Failed to authenticate with key {0}".format(self.key))
         elif not self.__doAgentAuth(t):
-            (ok, err) = self.__tryUsualKeys(t)
+                (ok, err) = self.__tryUsualKeys(t)
 
         if not ok:
             self.warn("In client authentication: {0}".format(err))

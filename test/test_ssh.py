@@ -11,10 +11,10 @@ except ImportError as e:
 import sys
 sys.path.append("../")
 import unittest
-import fmprpc
 import threading
 import time
 import fmprpc.log as log
+import fmprpc
 import fmprpc.server as server
 import fmprpc.err as err
 import random_json
@@ -23,12 +23,11 @@ import os
 import os.path
 from fmprpc.pipeliner import Pipeliner
 
-logo = log.newDefaultLogger(prefix="Tester")
-
 ##=======================================================================
 
-log.Levels.setDefault(log.Levels.INFO)
+log.Levels.setDefault(log.Levels.ERROR)
 paramiko.util.log_to_file('test_ssh.log')
+logo = log.newDefaultLogger(prefix="Tester")
 
 ##=======================================================================
 
@@ -185,7 +184,7 @@ class TlsTest (unittest.TestCase):
         ok = t.connect()
         self.assertTrue(not ok)
         self.assertTrue(t.getError('clientAuth'))
-        
+
     def test_bad_login_bad_host_auth (self):
         logo.info("test_bad_login_bad_host_auth")
         t = ssh.SshClientTransport(

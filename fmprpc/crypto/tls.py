@@ -2,7 +2,7 @@
 import fmprpc.transport as transport
 from tlslite import TLSConnection
 from tlslite.errors import TLSRemoteAlert
-import fmrpc.log as log
+import fmprpc.log as log
 
 ##=======================================================================
 

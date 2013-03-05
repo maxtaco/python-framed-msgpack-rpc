@@ -141,7 +141,7 @@ class SshClientTransport (transport.Transport):
             t.start_client()
             ret = True
         except paramiko.SSHException as e:
-            msg = "SSH channel negotiation failed: #{e}".format(e)
+            msg = "SSH channel negotiation failed: {0}".format(e)
             self.info(msg)
             self.reportError('negotation', msg)
         self.debug ("- __negotiateChannel -> {0}".format(ret))
@@ -152,12 +152,13 @@ class SshClientTransport (transport.Transport):
     def __doHostAuth(self, t):
         self.info ("+ __doHostAuth")
         key = t.get_remote_server_key()
-        self.info("Got remote server key: {0}".format(key.get_base64()))
-        self.debug("++ verify key via known_hosts: {0}".format(self.khr))
-        (ok, err) = self.khr.verify(self._remote.host, key)
+        host = self._remote.host
+        self.info("Got remote server key for {0}: {1}".format(host, key.get_base64()))
+        self.debug("++ verify via known_hosts: {0}".format(self.khr))
+        (ok, err) = self.khr.verify(host, key)
         if not ok:
             self.reportError("hostAuth", err)
-            self.warn("Failed to verify host {0}: {1}".format(err))
+            self.warn("Failed to verify host {0}: {1}".format(host, err))
         self.debug("+ __doHostAuth -> {0}".format(ok))
         return ok
 

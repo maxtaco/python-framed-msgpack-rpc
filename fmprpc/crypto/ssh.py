@@ -45,7 +45,7 @@ class SshClientStreamWrapper(SshStreamWrapper):
         else:
             self.warn("+ SshClientStreamWrapper closing due to bad handshake")
             tc.close()
-        self.debug("- SsshClientStreamWrapper")
+        self.debug("- SshClientStreamWrapper")
         return ret
 
 ##=======================================================================
@@ -109,7 +109,7 @@ class SshClientTransport (transport.Transport):
         self.debug("+ __tryKey '{0}'".format(key))
         kobj = ssh_key.SshPrivkey(shortfile=key)
         ret = kobj.run(uid = self.uid, transport = transport)
-        self.debug("+ __tryKey -> {0}".format(ret))
+        self.debug("- __tryKey -> {0}".format(ret))
         return ret
 
     ##-----------------------------------------

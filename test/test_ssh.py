@@ -23,6 +23,8 @@ import os
 import os.path
 from fmprpc.pipeliner import Pipeliner
 
+logo = log.newDefaultLogger(prefix="Tester")
+
 ##=======================================================================
 
 log.Levels.setDefault(log.Levels.DEBUG)
@@ -164,13 +166,17 @@ class TlsTest (unittest.TestCase):
             results = p.flush()
 
     def test_volley_of_objects_agent (self):
+        logo.info("test_volley_of_objects_agent")
         self.__runner(200, random_object, AGENT_USER, None)
-    def test_volley_of_objects_agent (self):
+    def test_volley_of_strings_agent (self):
+        logo.info("test_volley_of_strings_agent")
         self.__runner(200, random_string, AGENT_USER, None)
     def test_volley_of_strings_keyfile (self):
+        logo.info("test_volley_of_strings_keyfile")
         self.__runner(50, random_string, "d", self.server.keyfiles["d"])
 
     def test_bad_login_bad_client_auth (self):
+        logo.info("test_bad_login_bad_client_auth")
         t = ssh.SshClientTransport(
             remote=fmprpc.InternetAddress(port = self.PORT),
             uid="b",
@@ -181,6 +187,7 @@ class TlsTest (unittest.TestCase):
         self.assertTrue(t.getError('clientAuth'))
 
     def test_bad_login_bad_host_auth (self):
+        logo.info("test_bad_login_bad_host_auth")
         t = ssh.SshClientTransport(
             remote=fmprpc.InternetAddress(port = self.PORT),
             uid=AGENT_USER,

@@ -115,7 +115,7 @@ class SshPrivkey(Base):
                 self.key = self.klass.from_private_key_file(self.fullfile, pw)
             except paramiko.SSHException as e:
                 self._err = "Bad passphrase"
-        return self.key
+        return bool(self.key)
 
     def auth(self, username, t):
         ret = False

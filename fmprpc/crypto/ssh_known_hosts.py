@@ -17,6 +17,9 @@ class KnownHostsRegistry (log.Base):
         self.hosts = {}
         self.hashes = []
 
+    def __str__(self):
+        return "KnownHostsRegistry: {0}".format(repr(self.hosts))
+
     def load (self):
         self.__loadOne(".ssh")
         self.__loadOne("ssh")
@@ -27,10 +30,13 @@ class KnownHostsRegistry (log.Base):
 
     def __findHashes(self):
         for k in self.hosts.keys():
-            parts = k.split("|")
-            if len(parts) is 4 and parts[1] is "1":
-                v = [ p.decode('base64') for p in parts[2:4]]
-                self.hashes.append(tuple([k] + v))
+            self.__findHash(k)
+
+    def __findHash(self, k):
+        parts = k.split("|")
+        if len(parts) is 4 and parts[1] is "1":
+            v = [ p.decode('base64') for p in parts[2:4]]
+            self.hashes.append(tuple([k] + v))
 
     def __loadOne(self, dir):
         f = os.path.expanduser(os.path.join("~", dir, "known_hosts"))
@@ -56,11 +62,14 @@ class KnownHostsRegistry (log.Base):
             row = self.__findHashedHostname(hostname)
         return row
 
+    def add(self, host, type, key):
+        self.hosts[host] = { type : key }
+        self.__findHash(host)
+
     def verify (self, hostname, theirs):
         ok = False
         err = None
         typ = theirs.get_name()
-
         row = self.lookup(hostname)
 
         if row:

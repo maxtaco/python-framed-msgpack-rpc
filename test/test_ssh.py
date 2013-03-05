@@ -26,6 +26,7 @@ from fmprpc.pipeliner import Pipeliner
 ##=======================================================================
 
 log.Levels.setDefault(log.Levels.DEBUG)
+paramiko.util.log_to_file('test_ssh.log')
 
 ##=======================================================================
 

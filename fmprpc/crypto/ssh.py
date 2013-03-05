@@ -32,7 +32,7 @@ class SshClientStreamWrapper(SshStreamWrapper):
     def start (self):
         """Run an SSH handshake, and if that works, start up a 
         constant reader thread."""
-        self.debug("+ SsshClientStreamWrapper")
+        self.debug("+ SshClientStreamWrapper")
         tc = paramiko.Transport(self._socket)
         p = self.transport()
         ret = False
@@ -43,6 +43,7 @@ class SshClientStreamWrapper(SshStreamWrapper):
             transport.ClearStreamWrapper.start(self)
             ret = True
         else:
+            self.warn("+ SshClientStreamWrapper closing due to bad handshake")
             tc.close()
         self.debug("- SsshClientStreamWrapper")
         return ret
@@ -120,7 +121,9 @@ class SshClientTransport (transport.Transport):
             self.info(msg)
             self.reportError('negotation', msg)
             return False
+        self.info("+ get_remote_server_key")
         key = t.get_remote_server_key()
+        self.info("- get_remote_server_key -> {0}".format(key.get_base64()))
         (ok, err) = self.khr.verify(self.remote().host, key)
         if not ok:
             self.reportError("hostAuth", err)
@@ -131,12 +134,14 @@ class SshClientTransport (transport.Transport):
         #  1. First try the supplied key
         #  2. Then try the user's agent.
         #  3. Finally, try the default keys....
+        self.info("+ Client authorization")
         if self.key:
             (ok, err) = self.__tryKey(t, self.key)
             if not ok:
                 self.warn("Failed to authenticate with key {0}".format(self.key))
         elif not self.__doAgentAuth(t):
             (ok, err) = self.__tryUsualKeys(t)
+        self.info("- client authorization")
 
         if not ok:
             self.warn("In client authentication: {0}".format(err))
@@ -144,6 +149,7 @@ class SshClientTransport (transport.Transport):
         else:
             self._ssh_transport = t
             transport.Transport.start(self)
+        self.info("- SSH channel negotation with/ status={0}".format(ok))
         return ok
 
 ##=======================================================================

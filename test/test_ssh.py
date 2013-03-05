@@ -25,7 +25,7 @@ from fmprpc.pipeliner import Pipeliner
 
 ##=======================================================================
 
-log.Levels.setDefault(log.Levels.WARN)
+log.Levels.setDefault(log.Levels.DEBUG)
 
 ##=======================================================================
 

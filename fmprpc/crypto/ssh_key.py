@@ -108,7 +108,7 @@ class SshPrivkey(Base):
 
     def load(self):
         try:
-            self.key = self.klass.from_private_key(self.raw)
+            self.key = self.klass.from_private_key_file(self.fullfile)
         except paramiko.PasswordRequiredException as e:
             try:
                 pw = getpass.getpass("Passphrase for key {0}: ".format(self.shortfile))

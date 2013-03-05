@@ -32,6 +32,7 @@ class SshClientStreamWrapper(SshStreamWrapper):
     def start (self):
         """Run an SSH handshake, and if that works, start up a 
         constant reader thread."""
+        self.debug("+ SsshClientStreamWrapper")
         tc = paramiko.Transport(self._socket)
         p = self.transport()
         ret = False
@@ -43,6 +44,7 @@ class SshClientStreamWrapper(SshStreamWrapper):
             ret = True
         else:
             tc.close()
+        self.debug("- SsshClientStreamWrapper")
         return ret
 
 ##=======================================================================
@@ -55,11 +57,11 @@ class SshClientTransport (transport.Transport):
             self.key = kwargs.pop("key")
         else:
             self.key = None
-        if kwargs.hash_key("known_hosts"):
-            self.khr  = kwargs.pop("known_hosts")
+        if kwargs.has_key("known_hosts"):
+            self.khr = kwargs.pop("known_hosts")
         else:
             self.khr = skh.singleton()
-        tranport.Transport.__init__ (self, **kwargs)
+        transport.Transport.__init__ (self, **kwargs)
         self._ssh_session = None
         self.setWrapperClass(SshClientStreamWrapper)
 
@@ -110,7 +112,9 @@ class SshClientTransport (transport.Transport):
 
         self.info("Calling SSH channel negotation")
         try:
+            self.debug("++ doSshHandshake start_client")
             t.start_client()
+            self.debug("-- doSshHandshake start_client")
         except paramiko.SSHException as e:
             msg = "SSH channel negotiation failed: #{e}".format(e)
             self.info(msg)
@@ -120,6 +124,7 @@ class SshClientTransport (transport.Transport):
         (ok, err) = self.khr.verify(self.remote().host, key)
         if not ok:
             self.reportError("hostAuth", err)
+            self.warn("Failed to verify host {0}: {1}".format(err))
             return False
 
         # Now try the various attempts at client auth:
@@ -199,19 +204,25 @@ class SshServerTransport (transport.Transport, paramiko.ServerInterface):
 
     def doSshHandshake(self, ssht):
         chan = None
-        if _parent:
-            # Call up to tohe subclassed Server class for this...
-            self._parent.sshAddServerKey(ssht)
-            w = self._parent.sshGetAcceptTimeout()
+        p = self._parent
+        self.debug("+ SshServerTransport::doSshHandshake")
+        if p:
+            # Call up to the subclassed Server class for this...
+            p.sshAddServerKey(ssht)
+            w = p.sshGetAcceptTimeout()
             try:
+                self.debug("++ SSH start_server")
                 ssht.start_server(server = self)
-                chan = ssht.accept(self._parent.sshGetAcceptTimeout())
+                self.debug("++ SSH Accept")
+                chan = ssht.accept(p.sshGetAcceptTimeout())
+                self.debug("-- SSH Accept")
                 if chan is None:
                     self.warn("Failed to get an SSH channel")
             except paramiko.SSHException as e:
                 self.warn("SSH negotiation failed: #{0}".format(e))
         else:
             self.warn("Dead parent in doSshHandshake()")
+        self.debug("- SshServerTransport::doSshHandshake")
         return chan
 
 ##=======================================================================

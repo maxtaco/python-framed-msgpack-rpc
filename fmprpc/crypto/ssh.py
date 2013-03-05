@@ -198,7 +198,8 @@ class SshServerStreamWrapper (SshStreamWrapper):
         p = self.transport()
         if p: chan = p.doSshHandshake(ssht)
         if chan:
-            self._ssh_transport = chan
+            self._ssh_transport = ssht
+            self._ssh_channel = chan
             transport.ClearStreamWrapper.start(self)
             ret = True 
         else:

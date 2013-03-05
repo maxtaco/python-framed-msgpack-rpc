@@ -27,7 +27,7 @@ logo = log.newDefaultLogger(prefix="Tester")
 
 ##=======================================================================
 
-log.Levels.setDefault(log.Levels.DEBUG)
+log.Levels.setDefault(log.Levels.INFO)
 paramiko.util.log_to_file('test_ssh.log')
 
 ##=======================================================================
@@ -168,12 +168,9 @@ class TlsTest (unittest.TestCase):
     def test_volley_of_objects_agent (self):
         logo.info("test_volley_of_objects_agent")
         self.__runner(200, random_object, AGENT_USER, None)
-        
-    @unittest.skip("For now")
     def test_volley_of_strings_agent (self):
         logo.info("test_volley_of_strings_agent")
         self.__runner(200, random_string, AGENT_USER, None)
-    @unittest.skip("For now")
     def test_volley_of_strings_keyfile (self):
         logo.info("test_volley_of_strings_keyfile")
         self.__runner(50, random_string, "d", self.server.keyfiles["d"])

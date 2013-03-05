@@ -135,6 +135,5 @@ class SshPrivkey(Base):
         if ret and uid and transport:
             ret = self.auth(uid, transport)
         err = None if ret else self.error()
-        print "returning .... {0} {1}".format(ret, err)
         return (ret, err) 
 

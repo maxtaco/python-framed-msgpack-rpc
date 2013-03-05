@@ -175,7 +175,6 @@ class TlsTest (unittest.TestCase):
         logo.info("test_volley_of_strings_keyfile")
         self.__runner(50, random_string, "d", self.server.keyfiles["d"])
 
-    @unittest.skip("For now")
     def test_bad_login_bad_client_auth (self):
         logo.info("test_bad_login_bad_client_auth")
         t = ssh.SshClientTransport(
@@ -186,8 +185,7 @@ class TlsTest (unittest.TestCase):
         ok = t.connect()
         self.assertTrue(not ok)
         self.assertTrue(t.getError('clientAuth'))
-
-    @unittest.skip("For now")
+        
     def test_bad_login_bad_host_auth (self):
         logo.info("test_bad_login_bad_host_auth")
         t = ssh.SshClientTransport(

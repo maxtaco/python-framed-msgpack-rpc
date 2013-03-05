@@ -5,6 +5,7 @@ import os
 import re
 import base64
 import getpass
+import binascii
 
 ##=======================================================================
 
@@ -63,7 +64,8 @@ class Base (object):
                 self.raw = fh.readlines()
                 return True
             except IOError as e:
-                self._err = "cannot find key"
+                pass
+        self._err = "cannot find key"
         return False
 
 ##=======================================================================
@@ -74,13 +76,16 @@ class SshPubkey (Base):
 
     def load(self):
         parts = self.raw[0].split()
+        ret = False
         if len(parts) == 3:
             [self.type, b, self.name ] = parts
-            self.key = paramiko.RSAKey(data=base64.decodestring(b))
-            ret = True
+            try:
+                self.key = paramiko.RSAKey(data=base64.decodestring(b))
+                ret = True
+            except binascii.Error as e:
+                self._err = "encoding error: {0}".format(e)
         else:
             self._err = "keyfile was in wrong format (expected 3 fields, space-delimited)"
-            ret = False
         return ret
 
     def run(self):

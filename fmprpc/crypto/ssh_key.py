@@ -33,6 +33,8 @@ class Dir (object):
 
     def usuals(self):
         return [ self.key(n) for n in ("id_rsa", "id_dsa" ) ]
+    def usualsPublic (self):
+        return [ self.key(n) for n in ("id_rsa.pub", "id_dsa.pub" ) ]
 
 ##=======================================================================
 

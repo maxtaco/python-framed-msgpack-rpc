@@ -137,6 +137,12 @@ class ClearStreamWrapper (log.Base):
     def getGeneration (self): return self.generation
     def remote(self): return self.remote
 
+    def authenticatedUid (self):
+        """Some subclasses of the clear stream can authenticate users
+        are part of the handshake protocol (see crypto.tls) but by
+        default, nothing here."""
+        return None
+
 ##=======================================================================
 
 class Transport (dispatch.Dispatch):
@@ -349,6 +355,16 @@ class Transport (dispatch.Dispatch):
     def handleError(self, e, tcpw):
         self.error(e)
         self.__implicitClose(tcpw)
+
+    ##-----------------------------------------
+
+    def authenticatedUid(self):
+        """Ask our active stream if there's an authenticated uid
+        on the other end.  Usually no."""
+        ret = None
+        if self._stream_w:
+            ret = self._stream_w.authenticatedUid()
+        return ret
 
     ##-----------------------------------------
  

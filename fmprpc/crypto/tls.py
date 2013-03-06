@@ -56,6 +56,11 @@ class TlsClientStreamWrapper (TlsStreamWrapper):
 class TlsServerStreamWrapper (TlsStreamWrapper):
     def __init__ (self, s, transport):
         TlsStreamWrapper.__init__ (self, s, transport)
+        self._uid = None
+
+    def authenticatedUid (self): 
+        """Most stream wrappers will return None here, but we can do better..."""
+        return self._uid
 
     def start (self):
         tc = TLSConnection(self._socket)
@@ -63,6 +68,7 @@ class TlsServerStreamWrapper (TlsStreamWrapper):
         if p: p = p._parent
         if p and p.tlsDoHandshake(tc):
             self._tls_transport = tc
+            self._uid = tc.session.srpUsername
             transport.ClearStreamWrapper.start(self)
             ret = True 
         else:

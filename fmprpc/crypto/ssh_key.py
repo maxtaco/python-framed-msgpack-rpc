@@ -73,19 +73,34 @@ class Base (object):
 ##=======================================================================
 
 class SshPubkey (Base):
-    def __init__(self, shortfile = None, fullfile = None):
+    def __init__(self, shortfile = None, fullfile = None, raw = None):
         Base.__init__ (self, shortfile = shortfile, fullfile = fullfile)
+        # You can also pass in a raw representation of the data, as we
+        # would get from a config file.
+        if raw: self.raw = [ raw ]
 
     def load(self):
         parts = self.raw[0].split()
         ret = False
         if len(parts) == 3:
             [self.type, b, self.name ] = parts
-            try:
-                self.key = paramiko.RSAKey(data=base64.decodestring(b))
-                ret = True
-            except binascii.Error as e:
-                self._err = "encoding error: {0}".format(e)
+            klass = None
+            if self.type == "ssh-rsa":
+                klass = paramiko.RSAKey
+            elif self.type == "ssh-dsa":
+                klass = paramiko.DSSKey
+            else:
+                self._error = "Unknown key type: {0}".format(self.type)
+
+            if klass:
+                try:
+                    data = base64.decodestring(b)
+                    self.key = klass(data=data)
+                    ret = True
+                except binascii.Error as e:
+                    self._err = "encoding error: {0}".format(e)
+                except paramiko.SSHException as e:
+                    self._err = "invalid key: {0}".format(e)
         else:
             self._err = "keyfile was in wrong format (expected 3 fields, space-delimited)"
         return ret

@@ -56,7 +56,11 @@ class SshClientStreamWrapper(SshStreamWrapper):
 
 class SshClientTransport (transport.Transport):
     def __init__ (self, **kwargs):
-        self.uid = kwargs.pop("uid")
+        if kwargs.has_key("uid"):
+            self.uid = kwargs.pop("uid")
+            self.anon = False
+        else:
+            self.anon = True
         if kwargs.has_key("key"):
             # A loaded in paramaiko Key (decrypted, etc..)
             self.key = kwargs.pop("key")
@@ -165,6 +169,10 @@ class SshClientTransport (transport.Transport):
     ##-----------------------------------------
 
     def __doClientAuth(self, t):
+
+        if self.anon:
+            self.info("+ __doClientAuth -- anon -- skipped")
+            return True
 
         # Now try the various attempts at client auth:
         #  1. First try the supplied key
@@ -349,5 +357,5 @@ class ServerBase (object):
 
     def sshGetAcceptTimeout(self): return 60
     def sshAddServerKey(self, ssht): ssht.add_server_key(self._key)
-    
+
 ##=======================================================================

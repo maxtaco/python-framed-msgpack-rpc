@@ -272,6 +272,27 @@ class SshServerTransport (transport.Transport, paramiko.ServerInterface):
 
 ##=======================================================================
 
+class AnonSshServerTransport (SshServerTransport):
+    """
+    An SSH transport in which the user is anonymous.
+    Useful for registering a new users, and maybe backend
+    communication.
+    """
+
+    def __init__ (self, **kwargs):
+        SshServerTransport.__init__(self, **kwargs)
+
+    def get_allowed_auths(self, username): 
+        return "none"
+
+    def check_auth_none (self, username):
+        return paramiko.AUTH_SUCCESSFUL
+
+    def check_auth_publickey(self, username, key):
+        return paramiko.AUTH_FAILED
+
+##=======================================================================
+
 def enableServer(obj):
     """Call this function on an fmprpc.Server object to enable/require
     SSH on all incoming connections on this server.
@@ -286,11 +307,27 @@ def enableServer(obj):
 
 ##=======================================================================
 
+def enableAnonServer(obj):
+    """Call this function on an fmprpc.Server object to enable/require
+    SSH on all incoming connections on this server, but for 
+    **anonymous** connections
+    """
+
+    methods = [ "sshAddServerKey", "sshGetAcceptTimeout" ]
+    for m in methods:
+        if not hasattr(obj, m):
+            raise NotImplementedError, "Server doesn't implement {0}".format(m)
+
+    obj.setTransportClass(AnonSshServerTransport)
+
+##=======================================================================
+
 class ServerBase (object):
 
-    def __init__ (self):
+    def __init__ (self, anon = False):
         self._key = None
-        enableServer(self)
+        if anon: enableAnonServer(self)
+        else:    enableServer(self)
 
     def readRsaKey (self, fn):
         ret = False
@@ -312,3 +349,5 @@ class ServerBase (object):
 
     def sshGetAcceptTimeout(self): return 60
     def sshAddServerKey(self, ssht): ssht.add_server_key(self._key)
+    
+##=======================================================================

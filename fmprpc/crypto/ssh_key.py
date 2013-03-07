@@ -73,36 +73,41 @@ class Base (object):
 ##=======================================================================
 
 class SshPubkey (Base):
-    def __init__(self, shortfile = None, fullfile = None, raw = None):
+    def __init__(self, shortfile = None, fullfile = None):
         Base.__init__ (self, shortfile = shortfile, fullfile = fullfile)
-        # You can also pass in a raw representation of the data, as we
-        # would get from a config file.
-        if raw: self.raw = [ raw ]
 
     def load(self):
         parts = self.raw[0].split()
         ret = False
         if len(parts) == 3:
-            [self.type, b, self.name ] = parts
-            klass = None
-            if self.type == "ssh-rsa":
-                klass = paramiko.RSAKey
-            elif self.type == "ssh-dsa":
-                klass = paramiko.DSSKey
-            else:
-                self._error = "Unknown key type: {0}".format(self.type)
-
-            if klass:
-                try:
-                    data = base64.decodestring(b)
-                    self.key = klass(data=data)
-                    ret = True
-                except binascii.Error as e:
-                    self._err = "encoding error: {0}".format(e)
-                except paramiko.SSHException as e:
-                    self._err = "invalid key: {0}".format(e)
+            ret = self.loadFromTriple(*tuple(parts))
         else:
             self._err = "keyfile was in wrong format (expected 3 fields, space-delimited)"
+        return ret
+
+    def loadFromTriple(self, typ, data, name):
+        klass = None
+        ret = False
+        self.type = typ
+        self.name = name
+
+        if typ == "ssh-rsa":
+            klass = paramiko.RSAKey
+        elif typ == "ssh-dsa":
+            klass = paramiko.DSSKey
+        else:
+            self._err = "Unknown key type: {0}".format(typ)
+
+        if klass:
+            try:
+                data = base64.decodestring(data)
+                self.key = klass(data=data)
+                ret = True
+            except binascii.error as e:
+                self._err = "encoding error: {0}".format(e)
+            except paramiko.SSHException as e:
+                self._err = "invalid key: {0}".format(e)
+
         return ret
 
     def run(self):

@@ -82,8 +82,20 @@ class SshPubkey (Base):
         if len(parts) == 3:
             ret = self.loadFromTriple(*tuple(parts))
         else:
-            self._err = "keyfile was in wrong format (expected 3 fields, space-delimited)"
+            self._err = "keyfile was in wrong format (expected 3 " + \
+                " fields, space-delimited)"
         return ret
+
+    def exportToTriple(self, enc = None):
+        k = str(self.key)
+        if enc: k = k.encode(enc)
+        return (self.type, k, self.name)
+
+    def exportToDict(self, enc = None):
+        k = str(self.key)
+        if enc: k = k.encode(enc)
+        trip = self.exportToTriple(enc)
+        return { "type" : trip[0], "key" : trip[1], "name" : trip[2] }
 
     def loadFromTriple(self, typ, data, name):
         klass = None

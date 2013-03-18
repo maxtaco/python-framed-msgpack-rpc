@@ -14,3 +14,4 @@ class AuthenticationError(Error): pass
 class DeadTransportError(Error): pass
 class ServerKeyError(Error): pass
 class ClientKeyError(Error): pass
+class LogError(Error): pass

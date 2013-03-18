@@ -4,6 +4,7 @@ to set the level appropriately.
 """
 
 import sys
+from fmprpc.err import LogError
 
 ##=======================================================================
 
@@ -19,15 +20,37 @@ class Levels:
     FATAL = 5
     TOP = 6
 
-    DEFAULT = INFO
+    _DEFAULT = INFO
 
     @classmethod
     def setDefault(klass, l): 
         """
         Set the default log level for all future Logger objects;
-        this won't retoractively affect those that are already allocated.
+        this won't retroactively affect those that are already allocated.
         """
-        klass.DEFAULT = l
+
+        # If you pass None, we assume no change...
+        if l is None:
+            return
+
+        if type(l) is str:
+            try:
+                n = int(l)
+            except ValueError as e:
+                try:
+                    n = getattr(klass, l.upper())
+                except AttributeError as e:
+                    raise LogError("unknown level {0}".format(l))
+        else:
+            n = l
+
+        if n < 0 or n >= klass.TOP: 
+            raise LogError("log level {0} is out of range".format(n))
+
+        klass._DEFAULT = n
+
+    @classmethod
+    def getDefault(klass): return klass._DEFAULT
 
 ##=======================================================================
 
@@ -54,10 +77,10 @@ class Logger (object):
     def __init__ (self, prefix="RPC", remote=None, level=None):
         self.prefix = prefix 
         self.remote = remote
-        self.level = level if level else Levels.DEFAULT
+        self.level = (lambda : level) if level else Levels.getDefault
         self.outputHook = self.output
 
-    def setLevel (self, l): self.level = l
+    def setLevel (self, l): self.level = (lambda : l)
     def setRemote (self, r): self.remote = r
     def setPrefix (self, p): self.prefix = p
 
@@ -68,7 +91,7 @@ class Logger (object):
     def fatal(self, msg): self._log(msg, Levels.FATAL, "F")
 
     def _log (self, msg, level, display, ohook=None):
-        if level >= self.level: 
+        if level >= self.level(): 
             msg = trim(msg)
             parts = []
             if self.prefix: parts.append(self.prefix)
@@ -81,10 +104,10 @@ class Logger (object):
     def output(self, msg):
         sys.stderr.write(msg)
 
-    def makeChild(self, remote=None):
-        return Logger(prefix=self.prefix, 
-                      remote = remote if remote else self.remote,
-                      level = self.level)
+    def makeChild(self, remote=None, prefix=None):
+        if not prefix: prefix = self.prefix
+        if not remote: remote = self.remote
+        return Logger(prefix=prefix, remote=remote, level = self.level)
 
 ##=======================================================================
 

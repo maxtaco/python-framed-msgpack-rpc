@@ -95,7 +95,8 @@ class SshPubkey (Base):
         k = str(self.key)
         if enc: k = k.encode(enc)
         trip = self.exportToTriple(enc)
-        return { "type" : trip[0], "key" : trip[1], "name" : trip[2] }
+        f = binascii.hexlify(self.key.get_fingerprint())
+        return { "type" : trip[0], "key" : trip[1], "name" : trip[2], "fingerprint" : f }
 
     def loadFromTriple(self, typ, data, name):
         klass = None

@@ -299,7 +299,7 @@ class Transport (dispatch.Dispatch):
     def __del__(self):
         self.debug("calling __del__ on transport object")
         # An object deletion is equivalent to an explicit close...
-        self.__explicitClose()
+        self.__explicitClose(False)
    
     ##-----------------------------------------
 
@@ -308,7 +308,7 @@ class Transport (dispatch.Dispatch):
         Call to explicitly close this connection.  After an explicit close,
         reconnects are not attempted....
         """
-        self.__explicitClose()
+        self.__explicitClose(True)
 
     #
     # /Public API
@@ -325,15 +325,15 @@ class Transport (dispatch.Dispatch):
 
     ##-----------------------------------------
 
-    def __explicitClose(self):
-        self._lock.acquire()
+    def __explicitClose(self, do_lock):
+        if do_lock: self._lock.acquire()
         self._explicit_close = True
         if self._stream_w:
             w = self._stream_w
             self._stream_w = None
             w.close(True)
             self.__unregister()
-        self._lock.release()
+        if do_lock: self._lock.release()
 
     ##-----------------------------------------
 

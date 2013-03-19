@@ -77,12 +77,21 @@ class Logger (object):
     def __init__ (self, prefix="RPC", remote=None, level=None):
         self.prefix = prefix 
         self.remote = remote
-        self.level = (lambda : level) if level else Levels.getDefault
+        self.setLevel(level)
         self.outputHook = self.output
 
-    def setLevel (self, l): self.level = (lambda : l)
     def setRemote (self, r): self.remote = r
     def setPrefix (self, p): self.prefix = p
+
+    def setLevel (self, l): 
+        if l is None:
+            self.level = Levels.getDefault
+        elif callable(l):
+            self.level = l
+        elif type(l) is int:
+            self.level = (lambda : l)
+        else:
+            raise ValueError("inappropriate log level: {0}".format(l))
 
     def debug(self, msg): self._log(msg, Levels.DEBUG, "D")
     def info (self, msg): self._log(msg, Levels.INFO , "I")

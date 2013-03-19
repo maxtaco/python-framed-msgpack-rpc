@@ -71,7 +71,7 @@ class SimpleServer (listener.Listener):
 	def setProgramName(self, p): 
 		self._program = p
 
-	def getProgramName(self,p):
+	def getProgramName(self):
 		r = self._program
 		if not r:
 			raise AttributeError("attribute 'program' not found")

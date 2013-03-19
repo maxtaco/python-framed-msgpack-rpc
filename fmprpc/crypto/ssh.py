@@ -8,6 +8,7 @@ from binascii import hexlify
 import os
 import socket
 import os.path
+from fmprpc.err import ServerKeyError
 
 ##=======================================================================
 
@@ -140,6 +141,7 @@ class SshClientTransport (transport.Transport):
     ##-----------------------------------------
 
     def __negotiateChannel(self, t):
+        ret = False
         self.info("+ __negotiateChannel")
         try:
             t.start_client()
@@ -333,9 +335,13 @@ def enableAnonServer(obj):
 class ServerBase (object):
 
     def __init__ (self, anon = False):
-        self._key = None
         if anon: enableAnonServer(self)
         else:    enableServer(self)
+
+    def readKey(self, fn, typ):
+        if typ == 'rsa': return self.readRsaKey(fn)
+        elif typ == 'dsa' : return self.readDsaKey(fn)
+        else: raise ServerKeyError("no known key type {0}".format(typ))
 
     def readRsaKey (self, fn):
         ret = False
@@ -349,7 +355,7 @@ class ServerBase (object):
     def readDsaKey (self, fn):
         ret = False
         try: 
-            self._key = paramiko.RSAKey(filename=fn)
+            self._key = paramiko.DSSKey(filename=fn)
             ret = True
         except IOError as e:
             pass

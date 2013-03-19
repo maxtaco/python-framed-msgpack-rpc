@@ -89,7 +89,7 @@ class Server (threading.Thread, server.ContextualServer, ssh.ServerBase):
         # key, and a bad one without.  The bad one is just our known
         # hosts registry, which shouldn't have this jenky key for localhost
         khr = skh.KnownHostsRegistry()
-        khr.add(host = "127.0.0.1", type = "ssh-rsa", key = self._key)
+        khr.add(host = "127.0.0.1", type = "ssh-rsa", key = self.firstKey())
         self.khr_good = khr
 
         # Make a Known Hosts registry from the usual place, but don't make it 

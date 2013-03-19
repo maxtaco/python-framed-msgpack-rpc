@@ -337,6 +337,7 @@ class ServerBase (object):
     def __init__ (self, anon = False):
         if anon: enableAnonServer(self)
         else:    enableServer(self)
+        self._keys = []
 
     def readKey(self, fn, typ):
         if typ == 'rsa': return self.readRsaKey(fn)
@@ -346,7 +347,7 @@ class ServerBase (object):
     def readRsaKey (self, fn):
         ret = False
         try: 
-            self._key = paramiko.RSAKey(filename=fn)
+            self._keys.append(paramiko.RSAKey(filename=fn))
             ret = True
         except IOError as e:
             pass
@@ -355,13 +356,19 @@ class ServerBase (object):
     def readDsaKey (self, fn):
         ret = False
         try: 
-            self._key = paramiko.DSSKey(filename=fn)
+            self._keys.append(paramiko.DSSKey(filename=fn))
             ret = True
         except IOError as e:
             pass
         return ret
 
     def sshGetAcceptTimeout(self): return 60
-    def sshAddServerKey(self, ssht): ssht.add_server_key(self._key)
+
+    def sshAddServerKey(self, ssht): 
+        for k in self._keys:
+            ssht.add_server_key(k)
+
+    def firstKey (self): return self._keys[0]
+
 
 ##=======================================================================

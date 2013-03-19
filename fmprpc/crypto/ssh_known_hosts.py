@@ -5,11 +5,17 @@ import fmprpc.log as log
 from hashlib import sha1
 from hmac import HMAC
 
+##=======================================================================
+
 class KnownHostsRegistry (log.Base):
     """
     Read in the user's SSH known_hosts file, and perform lookups,
     on either plaintext hostnames, or those that have been obscured
-    with known_hosts hashing (see here: http://nms.csail.mit.edu/projects/ssh/)
+    with known_hosts hashing (see here: http://nms.csail.mit.edu/projects/ssh/).
+
+    I'm not crazy about this style of known host registry since it only 
+    admits one ker per host.  It gives more freedom to allow a few
+    different keys for a given host, especially during an upgrade.
     """
 
     def __init__ (self):

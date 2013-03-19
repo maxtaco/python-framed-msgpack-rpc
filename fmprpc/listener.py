@@ -96,6 +96,8 @@ class Listener (log.Base):
                 s = None
             if s:
                 try:
+                    # Make it so that we can kill this guy and then restart it!
+                    s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
                     s.bind(sa)
                     s.listen(ql)
                     return s

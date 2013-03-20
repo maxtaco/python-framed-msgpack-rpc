@@ -4,10 +4,15 @@ import re
 
 ##=======================================================================
 
-def collectHooks(obj):
+def collectHooks(obj, wrapper_fn = None):
 	"""Collect all of the methods that start with "h_"s from the given
 	object or klass. These are handler hooks and will automatically
 	assume a program with this function.
+
+	The wrapper function allows subclasses to do something interesting
+	like wrap all hook functions in a try/catch block. This might
+	be quite useful for catching argument errors (like missing fields
+	in incoming JSON objects) in one central place.
 	"""
 	rxx = re.compile(r'^h_(.*)$')
 	hooks = {}
@@ -15,6 +20,8 @@ def collectHooks(obj):
 		m = rxx.match(d)
 		val = getattr(obj, d)
 		if m and callable(val):
+			if wrapper_fn:
+				val = wrapper_fn(val)
 			hooks[m.group(1)] = val
 	return hooks
 
@@ -60,12 +67,13 @@ class SimpleServer (listener.Listener):
 	def __init__ (self, **kwargs):
 		self._program = kwargs.pop('program')
 		listener.Listener.__init__ (self, **kwargs)
+		self.__hookWrapper = None
 
 	def gotNewConnection (self, c):
 		# Note that we'll be fetching **bound** hooks from the self object,
 		# so they will work fine as callables from within the dispatch without
 		# any further molestation.
-		hooks = collectHooks(self)
+		hooks = collectHooks(self, self.__hookWrapper)
 		c.addProgram(self.getProgramName(), hooks)
 
 	def setProgramName(self, p): 

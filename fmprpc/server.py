@@ -24,7 +24,6 @@ def collectHooks(obj, wrapper_fn = None):
 	be quite useful for catching argument errors (like missing fields
 	in incoming JSON objects) in one central place.
 	"""
-	print "coollect hook w/ wrappen_fn = {0}".format(wrapper_fn)
 
 	rxx = re.compile(r'^h_(.*)$')
 	hooks = {}

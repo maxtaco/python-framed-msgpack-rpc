@@ -4,6 +4,16 @@ import re
 
 ##=======================================================================
 
+def safepop(d, k):
+	ret = None
+	try:
+		ret = d.pop(k)
+	except KeyError:
+		pass
+	return ret
+
+##=======================================================================
+
 def collectHooks(obj, wrapper_fn = None):
 	"""Collect all of the methods that start with "h_"s from the given
 	object or klass. These are handler hooks and will automatically
@@ -14,6 +24,8 @@ def collectHooks(obj, wrapper_fn = None):
 	be quite useful for catching argument errors (like missing fields
 	in incoming JSON objects) in one central place.
 	"""
+	print "coollect hook w/ wrappen_fn = {0}".format(wrapper_fn)
+
 	rxx = re.compile(r'^h_(.*)$')
 	hooks = {}
 	for d in dir(obj):
@@ -66,8 +78,9 @@ class SimpleServer (listener.Listener):
 
 	def __init__ (self, **kwargs):
 		self._program = kwargs.pop('program')
+		hw = safepop(kwargs, "hookWrapper")
+		self.__hookWrapper = hw
 		listener.Listener.__init__ (self, **kwargs)
-		self.__hookWrapper = None
 
 	def gotNewConnection (self, c):
 		# Note that we'll be fetching **bound** hooks from the self object,

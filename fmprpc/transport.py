@@ -26,6 +26,7 @@ class ConstantReader (threading.Thread, log.Base):
         self.transport = wrapper.transport
         log.Base.__init__(self, self.transport().getLogger())
         threading.Thread.__init__(self)
+        self.daemon = True
 
     def run (self):
         go = True
@@ -67,9 +68,14 @@ class ClearStreamWrapper (log.Base):
         self.write_closed_warn = False
         self.reader = None
         self.transport = transport
+        self._credentials = None
         log.Base.__init__(self, transport().getLogger())
         if socket:
             self.remote = address.InternetAddress(tup=s.getpeername())
+
+
+    def getCredentials (self): return self._credentials
+    def setCredentials (self, c): self._credentials = c
 
 
     def start(self):
@@ -452,6 +458,19 @@ class Transport (dispatch.Dispatch):
         else:
             self._stream_w.write(msg)
  
+    ##-----------------------------------------
+
+    def getCredentials (self):
+        ret = None
+        if self._stream_w:
+            ret = self._stream_w.getCredentials()
+        return ret
+
+    ##-----------------------------------------
+
+    def setCredentials (self, c):
+        if self._stream_w:
+            self._stream_w.setCredentials(c)
 
 ##=======================================================================
 

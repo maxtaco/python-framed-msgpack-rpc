@@ -58,11 +58,23 @@ class Invocation (object):
 		d.send(self.msg)
 
 		if not self.notify:
-			d._invocations[self.seqid] = self
+
+			# This is important, to hold onto this _invocations table!
+			# Why? When we shut a connection down uncleanly (see dispatchReset
+			# below), we go through and move the old table out of the way,
+			# reset _invocations in the dispatch object, and THEN cancel all guys
+			# within the original table. Thus, we have to hold onto the original
+			# table, and not the new table, otherwise we'll fail to call del
+			# below.
+			itab = d._invocations
+
+			itab[self.seqid] = self
 			self.condition = threading.Condition(self.lock())
 			while not self.complete:
 				self.condition.wait()
-			del d._invocations[self.seqid]
+
+			# See the comment above, this was the cause of a subtle bug
+			del itab[self.seqid]
 
 		if self.debug_msg:
 			self.debug_msg.reply(self.error, self.result).call()

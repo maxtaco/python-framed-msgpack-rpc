@@ -23,6 +23,11 @@ def collectHooks(obj, wrapper_fn = None):
 	like wrap all hook functions in a try/catch block. This might
 	be quite useful for catching argument errors (like missing fields
 	in incoming JSON objects) in one central place.
+
+	Note that for getting attributes on an instantiated class will result
+	in bound hooks.  So the hook is bound at the time of collectHooks
+	being called.  So in the case of  a simpleServer, this means the
+	hook is bound to the server object, and not the connection object.
 	"""
 
 	rxx = re.compile(r'^h_(.*)$')

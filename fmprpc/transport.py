@@ -303,9 +303,22 @@ class Transport (dispatch.Dispatch):
     ##-----------------------------------------
 
     def __del__(self):
-        self.debug("calling __del__ on transport object")
-        # An object deletion is equivalent to an explicit close...
-        self.__explicitClose(False)
+        """Of course we need to be very careful in writing this destructor, since if
+        the object was destroyed as a result of the process shutting down, a lot of 
+        things will break.  So, we just wrap everything in try/except's to silence
+        all exceptions.  We don't really care of a shutdown failed on process
+        exit in most cases anyways....
+        """
+        try:
+            self.debug("calling __del__ on transport object")
+        except:
+            pass
+
+        try:
+            # An object deletion is equivalent to an explicit close...
+            self.__explicitClose(False)
+        except:
+            pass
    
     ##-----------------------------------------
 

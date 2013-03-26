@@ -21,10 +21,16 @@ class SshStreamWrapper (transport.ClearStreamWrapper):
     def stream (self):
         return self._ssh_channel
     def shutdownStream (self, x, force):
-        if self._ssh_channel:
-            self._ssh_channel.close()
-        if self._ssh_transport:
-            self._ssh_transport.close()
+        try:
+            if self._ssh_channel:
+                self._ssh_channel.close()
+        except EOFError as e:
+            self.info("EOFError in closing SSH channel")
+        try:
+            if self._ssh_transport:
+                self._ssh_transport.close()
+        except EOFError as e:
+            self.info("EOFError in closing SSH transport")
 
 ##=======================================================================
 

@@ -73,8 +73,23 @@ class Base (object):
 ##=======================================================================
 
 class SshPubkey (Base):
+    """
+    A little wrapper around a paramiko public key, for things like
+    reading the files out of the file system, and capturing a row
+    of an SSH known_hosts file.
+    """
+
+    keytype_lookup = {
+        "ssh-rsa": paramiko.RSAKey,
+        "ssh-dsa" : paramiko.DSSKey
+    }
+
     def __init__(self, shortfile = None, fullfile = None):
         Base.__init__ (self, shortfile = shortfile, fullfile = fullfile)
+
+    @classmethod
+    def keytype_to_klass(klass, typ):
+        return klass.keytype_lookup.get(typ)
 
     def load(self):
         parts = self.raw[0].split()
@@ -98,18 +113,22 @@ class SshPubkey (Base):
         f = self.fingerprint()
         return { "type" : trip[0], "key" : trip[1], "name" : trip[2], "fingerprint" : f }
 
+    def loadFromDict(self, d):
+        self.loadFromTriple(d.get("type"), d.get("key"), d.get("name"))
+
+    @classmethod
+    def createFromDict(klass, d):
+        ret = SshPubkey()
+        ret.loadFromDict(d)
+        return ret
+
     def loadFromTriple(self, typ, data, name):
         klass = None
         ret = False
         self.type = typ
         self.name = name
 
-        if typ == "ssh-rsa":
-            klass = paramiko.RSAKey
-        elif typ == "ssh-dsa":
-            klass = paramiko.DSSKey
-        else:
-            self._err = "Unknown key type: {0}".format(typ)
+        klass = self.keytype_to_klass(typ)
 
         if klass:
             try:
@@ -120,6 +139,8 @@ class SshPubkey (Base):
                 self._err = "encoding error: {0}".format(e)
             except paramiko.SSHException as e:
                 self._err = "invalid key: {0}".format(e)
+        else:
+            self._err = "Unknown key type: {0}".format(typ)
 
         return ret
 

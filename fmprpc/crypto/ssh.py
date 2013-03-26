@@ -340,8 +340,8 @@ class ServerBase (object):
         self._keys = []
 
     def readKey(self, fn, typ):
-        if typ == 'rsa': return self.readRsaKey(fn)
-        elif typ == 'dsa' : return self.readDsaKey(fn)
+        if typ in ('ssh-rsa', 'rsa')   : return self.readRsaKey(fn)
+        elif typ in ('ssh-dsa', 'dsa') : return self.readDsaKey(fn)
         else: raise ServerKeyError("no known key type {0}".format(typ))
 
     def readRsaKey (self, fn):

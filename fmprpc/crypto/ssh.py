@@ -61,7 +61,18 @@ class SshClientStreamWrapper(SshStreamWrapper):
 
 ##=======================================================================
 
-class SshClientTransport (transport.Transport):
+class SshClientTransportMetaClass(type):
+
+    def __new__(cls, name, bases, attrs):
+        bases = ( transport.Transport, )
+        return super(SshClientTransportMetaClass, cls).__new__(cls, name, bases, attrs)
+
+##=======================================================================
+
+class SshClientTransport: 
+
+    __metaclass__ = SshClientTransportMetaClass
+
     def __init__ (self, **kwargs):
         if kwargs.has_key("uid"):
             self.uid = kwargs.pop("uid")
@@ -77,7 +88,7 @@ class SshClientTransport (transport.Transport):
             self.khr = kwargs.pop("known_hosts")
         else:
             self.khr = skh.singleton()
-        transport.Transport.__init__ (self, **kwargs)
+        super(SshClientTransport, self).__init__(**kwargs)
         self._ssh_session = None
         self.setWrapperClass(SshClientStreamWrapper)
 

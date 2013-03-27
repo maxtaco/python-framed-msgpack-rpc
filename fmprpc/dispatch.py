@@ -258,7 +258,7 @@ class Dispatch (Packetizer):
 			debug_msg.call()
 		if handler:
 			# Run the handler in a new thread so it can block, etc...
-			threading.Thread(target = handler, args = (bundle, )).run()
+			threading.Thread(target = handler, args = (bundle, )).start()
 		elif bundle.isCall():
 			bundle.error("unknown method: {0}".format(bundle.method))
 

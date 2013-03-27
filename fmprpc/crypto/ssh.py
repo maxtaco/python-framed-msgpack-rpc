@@ -221,7 +221,7 @@ class SshClientRobustTransport(transport.RobustTransport):
 
     def __init__ (self, **kwargs):
         self.__xwa = SshClientStreamWrapper.popArgs(kwargs)
-        super(SshClientTransport, self).__init__(**kwargs)
+        super(SshClientRobustTransport, self).__init__(**kwargs)
         self.setWrapperClass(SshClientStreamWrapper)
 
     ##-----------------------------------------

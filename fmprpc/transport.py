@@ -276,7 +276,7 @@ class Transport (dispatch.Dispatch):
     def connect (self):
         self._lock.acquire()
         if not self.isConnected():
-            ret = self.__connectCriticalSection()
+            ret = self._connectCriticalSection()
         else:
             ret = True
         self._lock.release()
@@ -458,7 +458,7 @@ class Transport (dispatch.Dispatch):
 
     ##-----------------------------------------
 
-    def __connectCriticalSection(self):
+    def _connectCriticalSection(self):
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         ok = False
         try:
@@ -515,12 +515,12 @@ class RobustTransport (Transport):
         and then make an error after we know how long it took.
     """
 
-    def __init__ (self, port=None, host=None, tcp_opts={}, stream=None, log_obj=None,
+    def __init__ (self, remote=None, tcp_opts={}, stream=None, log_obj=None,
                   parent=None, hooks={}, dbgr=None, 
                   reconnect_delay=1, queue_max=1000,
                   warn_threshhold=3.0, error_threshhold=10.0):
 
-        Transport.__init__(self, port=port, host=host,
+        Transport.__init__(self, remote=remote,
             tcp_opts=tcp_opts, stream=stream, log_obj=log_obj,
             parent=parent, hooks=hooks, dbgr=dbgr)
 
@@ -528,7 +528,7 @@ class RobustTransport (Transport):
         self._reconnect_delay = reconnect_delay
         self._warn_threshhold = warn_threshhold
         self._error_threshhold = error_threshhold
-        self._time_rpcs = (self.warn_treshhold or self._error_threshhold)
+        self._time_rpcs = (warn_threshhold or error_threshhold)
         self._condition = threading.Condition()
    
     ##-----------------------------------------
@@ -542,7 +542,9 @@ class RobustTransport (Transport):
 
     def reconnect(self, first_time):
         if not self._explicit_close and not self._handshake_error:
-            self.__connectLoop(first_time)
+            x = threading.Thread(target = self.__connectLoop, args = (first_time, ))
+            x.daemon = True
+            x.start()
 
     ##-----------------------------------------
 
@@ -559,7 +561,7 @@ class RobustTransport (Transport):
                 go = False
             else:
                 self.info("{0}connecting (attempt {1})".format(prfx, i))
-                ok = self.__connectCriticalSection()
+                ok = self._connectCriticalSection()
                 if ok:
                     go = False
                 else:

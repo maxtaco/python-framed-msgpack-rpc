@@ -193,14 +193,34 @@ class SshClientStreamWrapper(SshStreamWrapper):
         self.info("- __doClientAuth -> {0}".format(ok))
         return ok
 
+    ##-----------------------------------------
+
+    @classmethod
+    def popArgs(klass, kwargs):
+        ret = {}
+        for i in ("uid", "key", "known_hosts"):
+            ret[i] = safepop(kwargs, i)
+        return ret
+
 ##=======================================================================
 
 class SshClientTransport(transport.Transport): 
 
     def __init__ (self, **kwargs):
-        self.__xwa = {}
-        for i in ("uid", "key", "known_hosts"):
-            self.__xwa[i] = safepop(kwargs, i)
+        self.__xwa = SshClientStreamWrapper.popArgs(kwargs)
+        super(SshClientTransport, self).__init__(**kwargs)
+        self.setWrapperClass(SshClientStreamWrapper)
+
+    ##-----------------------------------------
+
+    def extraWrapperArgs(self): return self.__xwa
+
+##=======================================================================
+
+class SshClientRobustTransport(transport.RobustTransport): 
+
+    def __init__ (self, **kwargs):
+        self.__xwa = SshClientStreamWrapper.popArgs(kwargs)
         super(SshClientTransport, self).__init__(**kwargs)
         self.setWrapperClass(SshClientStreamWrapper)
 
@@ -209,7 +229,6 @@ class SshClientTransport(transport.Transport):
     def extraWrapperArgs(self): return self.__xwa
 
     ##-----------------------------------------
-
 
 ##=======================================================================
 

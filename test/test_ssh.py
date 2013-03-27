@@ -121,7 +121,7 @@ class Server (threading.Thread, server.ContextualServer, ssh.ServerBase):
         f = os.path.join(cwd, "keys", "bad_dsa")
         self.keyfiles["b"] = f
 
-    def sshCheckAuthPublickey(self, username, key):
+    def sshCheckAuthPublickey(self, username, key, transport):
         k = self.pubkeys.get(username)
         return k and k == key
 

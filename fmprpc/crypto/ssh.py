@@ -256,7 +256,7 @@ class SshServerTransport (transport.Transport, paramiko.ServerInterface):
         fp = hexlify(key.get_fingerprint())
         self.debug("+ check_auth_publickey {0}@{1}".format(username, fp))
         if self._parent:
-            ret = self._parent.sshCheckAuthPublickey(username, key)
+            ret = self._parent.sshCheckAuthPublickey(username, key, self)
             self.debug("- check_auth_publickey {0}@{1} -> {2}".format(username, fp, ret))
         else:
             self.warn("Auth pubkey failed due to dead parent for {0}".format(username))

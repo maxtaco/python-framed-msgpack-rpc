@@ -122,6 +122,14 @@ class SshPubkey (Base):
         ret.loadFromDict(d)
         return ret
 
+    @classmethod
+    def createFromKey(klass, k):
+        ret = SshPubkey()
+        ret.type = k.get_name()
+        ret.key = k
+        ret.name = "anon"
+        return ret
+
     def loadFromTriple(self, typ, data, name):
         klass = None
         ret = False

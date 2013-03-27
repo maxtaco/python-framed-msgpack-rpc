@@ -2,9 +2,10 @@ import re
 
 class InternetAddress (object):
 
-    def __init__(self, tup=None, host=None, port=None, s=None, defhost="127.0.0.1"):
+    def __init__(self, tup=None, host=None, port=None, s=None, ip = None, defhost="127.0.0.1"):
         self.host = host
         self.port = port
+        self.ip = ip
         if s:
             rxx = re.compile("(.*):(\d+)$")
             m = rxx.match(s)
@@ -26,6 +27,8 @@ class InternetAddress (object):
     def __iter__(self): 
         return iter([self.host, self.port])
 
+    def clone(self, ip = None):
+        return InternetAddress(host = self.host, port = self.port, ip = ip)
 
 class OpenServerAddress (InternetAddress):
     def __init__(self, **kwargs):

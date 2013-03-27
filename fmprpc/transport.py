@@ -70,9 +70,8 @@ class ClearStreamWrapper (log.Base):
         self.transport = transport
         self._credentials = None
         log.Base.__init__(self, transport().getLogger())
-        if socket:
-            self.remote = address.InternetAddress(tup=s.getpeername())
-
+        rh = s.getpeername()[0] if s else None
+        self.remote = transport()._remote.clone(ip = rh)
 
     def getCredentials (self): return self._credentials
     def setCredentials (self, c): self._credentials = c

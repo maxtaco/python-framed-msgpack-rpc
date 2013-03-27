@@ -105,11 +105,10 @@ class SshClientStreamWrapper(SshStreamWrapper):
     ##-----------------------------------------
 
     def __tryKey(self, transport, key):
-        self.debug("+ __tryKey '{0}'".format(key))
-        kobj = ssh_key.SshPrivkey(shortfile=key)
-        ret = kobj.run(uid = self.uid, transport = transport)
-        self.debug("- __tryKey -> {0}".format(ret))
-        return ret
+        self.info("+ __tryKey {0} / {1}".format(self.uid, key.fingerprint()))
+        (ok, err) = key.run(uid = self.uid, transport = transport)
+        self.info("- __tryKey -> {0} {1}".format(ok, err))
+        return (ok, err)
 
     ##-----------------------------------------
 

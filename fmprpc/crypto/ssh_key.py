@@ -70,6 +70,9 @@ class Base (object):
         self._err = "cannot find key"
         return False
 
+    def fingerprint (self):
+        return binascii.hexlify(self.key.get_fingerprint())
+
 ##=======================================================================
 
 class SshPubkey (Base):
@@ -152,9 +155,6 @@ class SshPubkey (Base):
 
         return ret
 
-    def fingerprint (self):
-        return binascii.hexlify(self.key.get_fingerprint())
-
     def run(self):
         ret = self.resolve() \
           and self.find()    \
@@ -169,6 +169,7 @@ class SshPrivkey(Base):
     def __init__ (self, shortfile = None, fullfile = None):
         Base.__init__ (self, shortfile = shortfile, fullfile = fullfile)
         self.klass = None
+        self._loaded = False
 
     def classify(self):
         line = self.raw[0]
@@ -203,10 +204,14 @@ class SshPrivkey(Base):
         return ret
 
     def run(self, uid = None, transport = None):
-        ret = self.resolve()  \
-          and self.find()     \
-          and self.classify() \
-          and self.load()
+        if not self._loaded:
+            ret = self.resolve()  \
+              and self.find()     \
+              and self.classify() \
+              and self.load()
+            self._loaded = ret
+        else:
+            ret = True 
         if ret and uid and transport:
             ret = self.auth(uid, transport)
         err = None if ret else self.error()

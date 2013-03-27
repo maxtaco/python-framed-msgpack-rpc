@@ -233,6 +233,17 @@ class SshServerTransport (transport.Transport, paramiko.ServerInterface):
     def check_channel_request(self, kind, chanid):
         if kind == 'session':
             ret = paramiko.OPEN_SUCCEEDED
+
+            # This is a good time to tell our subclass that the user is
+            # authenticated.  Because they can only ask for a channel/session
+            # after they are authenticated.  Of course, this isn't
+            # a mandatory hook...
+            try:
+                self._parent.sshSessionRequest(self, chanid)
+            except AttributeError as e:
+                # It's OK if the subclass didn't implement this, we can
+                # ignore it...
+                pass
         else:
             self.warn("Reject open request for channel {0}/{1}"
                 .format(kind, chanid))

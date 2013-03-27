@@ -403,6 +403,14 @@ class Transport (dispatch.Dispatch):
 
     ##-----------------------------------------
 
+    def extraWrapperArgs(self): 
+        # Subclasses can make this behave the way they want --- these
+        # are extra arugments passed to the construction of the new
+        # stream wrapper
+        return {}
+
+    ##-----------------------------------------
+
     def makeWrapper(self, x):
         #
         # The current generation needs to be wrapped into this hook;
@@ -421,7 +429,7 @@ class Transport (dispatch.Dispatch):
         #
         # One more thing: this is a one-liner function so we
         # can let subclasses define new behavior here.
-        return self._wrapper_klass (x, weakref.ref(self))
+        return self._wrapper_klass(x, weakref.ref(self), **self.extraWrapperArgs())
 
     ##-----------------------------------------
 

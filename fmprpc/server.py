@@ -1,16 +1,7 @@
 
 import listener
 import re
-
-##=======================================================================
-
-def safepop(d, k):
-	ret = None
-	try:
-		ret = d.pop(k)
-	except KeyError:
-		pass
-	return ret
+from fmprpc.util import safepop
 
 ##=======================================================================
 

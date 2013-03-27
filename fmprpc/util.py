@@ -1,13 +1,29 @@
 import re
 import datetime, time, functools, operator, types
 
+##=======================================================================
+
 def enum (**kwargs):
 	return type('Enum', (), kwargs)
+
+##=======================================================================
 
 def formatRaw(buf):
     if buf is None:
         buf = ""
     return "Raw(" + " ".join([ "{0:02x}".format(ord(c)) for c in buf]) + ")"
+
+##=======================================================================
+
+def safepop(d, k):
+  ret = None
+  try:
+    ret = d.pop(k)
+  except KeyError:
+    pass
+  return ret
+
+##=======================================================================
 
 default_fudge = datetime.timedelta(seconds=0, microseconds=0, days=0)
  

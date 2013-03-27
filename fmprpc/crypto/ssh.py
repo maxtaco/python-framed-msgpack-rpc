@@ -9,6 +9,7 @@ import os
 import socket
 import os.path
 from fmprpc.err import ServerKeyError
+from fmprpc.util import safepop
 
 ##=======================================================================
 
@@ -36,8 +37,13 @@ class SshStreamWrapper (transport.ClearStreamWrapper):
 
 class SshClientStreamWrapper(SshStreamWrapper):
 
-    def __init__ (self, s, transport):
+    def __init__ (self, s, transport, uid = None, key = None, known_hosts = None):
+        self.uid = uid
+        self.key = key
+        self.khr = known_hosts if known_hosts else khr.singleton()
         SshStreamWrapper.__init__ (self, s, transport)
+
+    ##-----------------------------------------
 
     def start (self):
         """Run an SSH handshake, and if that works, start up a 
@@ -48,7 +54,7 @@ class SshClientStreamWrapper(SshStreamWrapper):
         ret = False
         if not p:
             self.warn("Transport was dead in SshClientStreamWrapper")
-        elif p.doSshHandshake(tc):
+        elif self.doSshHandshake(tc):
             self._ssh_transport = tc
             self._ssh_channel = tc.open_session()
             transport.ClearStreamWrapper.start(self)
@@ -58,39 +64,6 @@ class SshClientStreamWrapper(SshStreamWrapper):
             tc.close()
         self.debug("- SshClientStreamWrapper")
         return ret
-
-##=======================================================================
-
-class SshClientTransportMetaClass(type):
-
-    def __new__(cls, name, bases, attrs):
-        bases = ( transport.Transport, )
-        return super(SshClientTransportMetaClass, cls).__new__(cls, name, bases, attrs)
-
-##=======================================================================
-
-class SshClientTransport: 
-
-    __metaclass__ = SshClientTransportMetaClass
-
-    def __init__ (self, **kwargs):
-        if kwargs.has_key("uid"):
-            self.uid = kwargs.pop("uid")
-            self.anon = False
-        else:
-            self.anon = True
-        if kwargs.has_key("key"):
-            # A loaded in paramaiko Key (decrypted, etc..)
-            self.key = kwargs.pop("key")
-        else:
-            self.key = None
-        if kwargs.has_key("known_hosts"):
-            self.khr = kwargs.pop("known_hosts")
-        else:
-            self.khr = skh.singleton()
-        super(SshClientTransport, self).__init__(**kwargs)
-        self._ssh_session = None
-        self.setWrapperClass(SshClientStreamWrapper)
 
     ##-----------------------------------------
 
@@ -172,10 +145,16 @@ class SshClientTransport:
 
     ##-----------------------------------------
 
+    def reportError(self, t, e):
+        p = self.transport()
+        if p: p.reportError(t, e)
+
+    ##-----------------------------------------
+
     def __doHostAuth(self, t):
         self.info ("+ __doHostAuth")
         key = t.get_remote_server_key()
-        host = self._remote.host
+        host = self.remote.host
         self.info("Got remote server key for {0}: {1}".format(host, key.get_base64()))
         self.debug("++ verify via known_hosts: {0}".format(self.khr))
         (ok, err) = self.khr.verify(host, key)
@@ -189,7 +168,7 @@ class SshClientTransport:
 
     def __doClientAuth(self, t):
 
-        if self.anon:
+        if not self.uid:
             self.info("+ __doClientAuth -- anon -- skipped")
             return True
 
@@ -213,6 +192,24 @@ class SshClientTransport:
             
         self.info("- __doClientAuth -> {0}".format(ok))
         return ok
+
+##=======================================================================
+
+class SshClientTransport(transport.Transport): 
+
+    def __init__ (self, **kwargs):
+        self.__xwa = {}
+        for i in ("uid", "key", "known_hosts"):
+            self.__xwa[i] = safepop(kwargs, i)
+        super(SshClientTransport, self).__init__(**kwargs)
+        self.setWrapperClass(SshClientStreamWrapper)
+
+    ##-----------------------------------------
+
+    def extraWrapperArgs(self): return self.__xwa
+
+    ##-----------------------------------------
+
 
 ##=======================================================================
 

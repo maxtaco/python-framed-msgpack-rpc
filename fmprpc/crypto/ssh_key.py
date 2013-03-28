@@ -46,6 +46,8 @@ class Base (object):
         self.raw = None
         self._err = None
         self.key = None
+        self.type = None
+        self.name = None
 
     def resolve(self):
         ff = os.path.expanduser(self.shortfile)
@@ -57,7 +59,7 @@ class Base (object):
     def error (self):
         return "{0}: {1}".format(self.shortfile, self._err) if self._err else None
 
-    def isLoaded (self): return self.key
+    def isLoaded (self): return bool(self.key)
 
     def find(self):
         f = self.fullfile
@@ -71,8 +73,8 @@ class Base (object):
         self._err = "cannot find key"
         return False
 
-    def fingerprint (self):
-        return formatFingerprint(self.key.get_fingerprint())
+    def fingerprint (self, colons = False):
+        return formatFingerprint(self.key.get_fingerprint(), colons)
 
 ##=======================================================================
 
@@ -107,15 +109,19 @@ class SshPubkey (Base):
                 " fields, space-delimited)"
         return ret
 
-    def exportToTriple(self, enc = None):
+    def exportToTriple(self, enc = False):
         k = str(self.key)
-        if enc: k = enc(k)
+        if enc: k = base64.b64encode(k)
         return (self.type, k, self.name)
 
-    def exportToDict(self, enc = None):
+    def exportToDict(self, enc = False):
         k = str(self.key)
-        ret = { "type" : self.type, "name" : self.name }
-        if enc: ret["key"] = enc(k)
+        ret = { 
+            "type"        : self.type,
+            "name"        : self.name, 
+            "fingerprint" : self.fingerprint(False)
+        }
+        if enc: ret["key"]  = base64.b64encode(k)
         else:   ret["rkey"] = k
         return ret
 
@@ -125,6 +131,7 @@ class SshPubkey (Base):
     @classmethod
     def createFromDict(klass, d):
         ret = SshPubkey()
+        ret.loadFromDict(d)
         return ret
 
     @classmethod
@@ -148,10 +155,13 @@ class SshPubkey (Base):
         elif b64data:
             try:
                 data = base64.b64decode(b64data)
-                self.key = klass(data=data)
-                ret = True
             except TypeError as e:
                 self._err = "encoding error: {0} (dat={1})".format(e, data)
+
+        if data:
+            try:
+                self.key = klass(data=data)
+                ret = True
             except paramiko.SSHException as e:
                 self._err = "invalid key: {0}".format(e)
 

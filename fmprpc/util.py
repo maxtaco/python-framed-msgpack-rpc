@@ -16,20 +16,22 @@ def formatRaw(buf):
 
 ##=======================================================================
 
-def formatFingerprint(raw):
+def formatFingerprint(raw, colons = False):
     f = binascii.hexlify(raw)
-    diads = [ f[i:i+2] for i in range(0, len(f), 2) ]
-    return ":".join(diads)
+    if colons:
+        diads = [ f[i:i+2] for i in range(0, len(f), 2) ]
+        f = ":".join(diads)
+    return f
 
 ##=======================================================================
 
 def safepop(d, k):
-  ret = None
-  try:
-    ret = d.pop(k)
-  except KeyError:
-    pass
-  return ret
+    ret = None
+    try:
+        ret = d.pop(k)
+    except KeyError:
+        pass
+    return ret
 
 ##=======================================================================
 

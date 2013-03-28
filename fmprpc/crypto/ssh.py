@@ -417,6 +417,7 @@ def enableAnonServer(obj):
 class ServerBase (object):
 
     def __init__ (self, anon = False):
+        self.anon = anon
         if anon: enableAnonServer(self)
         else:    enableServer(self)
         self._keys = []

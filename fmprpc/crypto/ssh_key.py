@@ -99,7 +99,9 @@ class SshPubkey (Base):
         parts = self.raw[0].split()
         ret = False
         if len(parts) == 3:
-            ret = self.loadFromTriple(*tuple(parts))
+            # We'll have a base64-encoded data, and not the raw data, but
+            # this is compatible with the arg ordering of loadFromTuple()
+            ret = self.loadFromTuple(*tuple(parts))
         else:
             self._err = "keyfile was in wrong format (expected 3 " + \
                 " fields, space-delimited)"
@@ -107,34 +109,33 @@ class SshPubkey (Base):
 
     def exportToTriple(self, enc = None):
         k = str(self.key)
-        if enc: k = k.encode(enc)
+        if enc: k = enc(k)
         return (self.type, k, self.name)
 
     def exportToDict(self, enc = None):
         k = str(self.key)
-        if enc: k = k.encode(enc)
-        trip = self.exportToTriple(enc)
-        f = self.fingerprint()
-        return { "type" : trip[0], "key" : trip[1], "name" : trip[2], "fingerprint" : f }
+        ret = { "type" : self.type, "name" : self.name }
+        if enc: ret["key"] = enc(k)
+        else:   ret["rkey"] = k
+        return ret
 
     def loadFromDict(self, d):
-        self.loadFromTriple(d.get("type"), d.get("key"), d.get("name"))
+        self.loadFromTuple(d.get("type"), d.get("key"), d.get("name"), d.get("rkey"))
 
     @classmethod
     def createFromDict(klass, d):
         ret = SshPubkey()
-        ret.loadFromDict(d)
         return ret
 
     @classmethod
     def createFromKey(klass, k):
         ret = SshPubkey()
         ret.type = k.get_name()
-        ret.key = k
+        ret.key = k 
         ret.name = "anon"
         return ret
 
-    def loadFromTriple(self, typ, data, name):
+    def loadFromTuple(self, typ, b64data = None, name = None, data = None):
         klass = None
         ret = False
         self.type = typ
@@ -142,17 +143,17 @@ class SshPubkey (Base):
 
         klass = self.keytype_to_klass(typ)
 
-        if klass:
+        if not klass:
+            self._err = "Unknown key type: {0}".format(typ)
+        elif b64data:
             try:
-                data = base64.b64decode(data)
+                data = base64.b64decode(b64data)
                 self.key = klass(data=data)
                 ret = True
             except TypeError as e:
                 self._err = "encoding error: {0} (dat={1})".format(e, data)
             except paramiko.SSHException as e:
                 self._err = "invalid key: {0}".format(e)
-        else:
-            self._err = "Unknown key type: {0}".format(typ)
 
         return ret
 

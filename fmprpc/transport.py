@@ -9,6 +9,7 @@ import util
 import weakref
 import sys
 import address
+import err
 
 ##=======================================================================
 
@@ -592,7 +593,8 @@ class RobustTransport (Transport):
 
         start = time.time()
         inv = self.newInvocation(program=program, method=method, arg=arg, notify=notify)
-        ret = inv.invoke()
+        e,ret = inv.invoke()
+        if e: raise err.RpcCallError(e)
         dur = time.time() - start
 
         if eth and eth <= dur: fn = self.error

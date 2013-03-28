@@ -105,9 +105,10 @@ class SshClientStreamWrapper(SshStreamWrapper):
     ##-----------------------------------------
 
     def __tryKey(self, transport, key):
-        self.info("+ __tryKey {0} / {1}".format(self.uid, key.fingerprint()))
+        self.info("+ __tryKey {0}".format(self.uid))
         (ok, err) = key.run(uid = self.uid, transport = transport)
-        self.info("- __tryKey -> {0} {1}".format(ok, err))
+        self.info("- __tryKey -> {0} for {1}: {2}".format(
+            ok, key.fingerprint(), err))
         return (ok, err)
 
     ##-----------------------------------------

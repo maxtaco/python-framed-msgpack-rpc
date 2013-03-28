@@ -97,7 +97,7 @@ class Server (threading.Thread, server.ContextualServer, ssh.ServerBase):
         self.khr_bad.getLogger().setLevel(g_log_level)
 
     def run(self):
-        self.listen(self.cond)
+        self.listenRetry(2,self.cond)
     def stop(self):
         self.close()
 
@@ -105,7 +105,7 @@ class Server (threading.Thread, server.ContextualServer, ssh.ServerBase):
 
 @unittest.skipUnless(paramiko, "skipped since paramiko wasn't found")
 class AnonSshTest (unittest.TestCase):
-    PORT = 50001 + (int(time.time()*1000) % 1000)
+    PORT = 50007
     PROG = "P.1"
 
     @classmethod

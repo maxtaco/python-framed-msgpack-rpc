@@ -126,7 +126,7 @@ class Server (threading.Thread, server.ContextualServer, ssh.ServerBase):
         return k and k == key
 
     def run(self):
-        self.listen(self.cond)
+        self.listenRetry(3,self.cond)
     def stop(self):
         self.close()
 
@@ -134,7 +134,7 @@ class Server (threading.Thread, server.ContextualServer, ssh.ServerBase):
 
 @unittest.skipUnless(paramiko, "skipped since paramiko wasn't found")
 class SshTest (unittest.TestCase):
-    PORT = 50001 + (int(time.time()*1000) % 1000)
+    PORT = 50005
     PROG = "P.1"
 
     @classmethod
@@ -165,6 +165,7 @@ class SshTest (unittest.TestCase):
 
     def __runner(self, n, genfn, uid, key):
         global g_log_level
+        key = ssh_key.SshPrivkey(shortfile=key) if key else None
         t = ssh.SshClientTransport(
             remote=fmprpc.InternetAddress(port = self.PORT),
             uid=uid,
@@ -192,11 +193,12 @@ class SshTest (unittest.TestCase):
 
     def test_bad_login_bad_client_auth (self):
         logo.info("test_bad_login_bad_client_auth")
+        key = ssh_key.SshPrivkey(shortfile = self.server.keyfiles["b"])
         t = ssh.SshClientTransport(
             remote=fmprpc.InternetAddress(port = self.PORT),
             uid="b",
             known_hosts=self.server.khr_good,
-            key=self.server.keyfiles["b"])
+            key=key)
         global g_log_level
         t.getLogger().setLevel(g_log_level)
         ok = t.connect()

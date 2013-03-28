@@ -28,7 +28,7 @@ class ServerThread(threading.Thread):
 
             })
         self.server = s
-        return s.listen(self.cond)
+        return s.listenRetry(2,self.cond)
 
     def run(self):
         self.launchServer()
@@ -39,7 +39,7 @@ class ServerThread(threading.Thread):
 
 class Test1(unittest.TestCase):
 
-    PORT = 50000 + (int(time.time()) % 1000)
+    PORT = 50001
     PROG = "P.1"
 
     @classmethod 

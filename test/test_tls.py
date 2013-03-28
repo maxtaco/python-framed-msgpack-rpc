@@ -83,7 +83,7 @@ class Server (server.ContextualServer, threading.Thread):
             self.info("Handshake error: {0}".format(e))
         return ret
     def run(self):
-        self.listen(self.cond)
+        self.listenRetry(2,self.cond)
     def stop(self):
         self.close()
 
@@ -91,7 +91,7 @@ class Server (server.ContextualServer, threading.Thread):
 
 @unittest.skipUnless(tlslite, "skipped since tlslite wasn't found")
 class TlsTest (unittest.TestCase):
-    PORT = 50001 + (int(time.time()*1000) % 1000)
+    PORT = 50006
     PROG = "P.1"
 
     @classmethod

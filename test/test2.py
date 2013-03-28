@@ -28,14 +28,14 @@ class ServerThread(threading.Thread):
         self.cond = cond
 
     def run(self):
-        self.srv.listen(self.cond)
+        self.srv.listenRetry(2,self.cond)
 
     def stop(self):
         self.srv.close()
 
 class Test2(unittest.TestCase):
 
-    PORT = 50001 + (int(time.time()) % 1000)
+    PORT = 50002
     PROG = "P.1"
 
     @classmethod

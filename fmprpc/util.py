@@ -1,10 +1,11 @@
 import re
 import datetime, time, functools, operator, types
+import binascii
 
 ##=======================================================================
 
 def enum (**kwargs):
-	return type('Enum', (), kwargs)
+    return type('Enum', (), kwargs)
 
 ##=======================================================================
 
@@ -12,6 +13,13 @@ def formatRaw(buf):
     if buf is None:
         buf = ""
     return "Raw(" + " ".join([ "{0:02x}".format(ord(c)) for c in buf]) + ")"
+
+##=======================================================================
+
+def formatFingerprint(raw):
+    f = binascii.hexlify(raw)
+    diads = [ f[i:i+2] for i in range(0, len(f), 2) ]
+    return ":".join(diads)
 
 ##=======================================================================
 

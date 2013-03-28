@@ -6,6 +6,7 @@ import re
 import base64
 import getpass
 import binascii
+from fmprpc.util import formatFingerprint
 
 ##=======================================================================
 
@@ -71,7 +72,7 @@ class Base (object):
         return False
 
     def fingerprint (self):
-        return binascii.hexlify(self.key.get_fingerprint())
+        return formatFingerprint(self.key.get_fingerprint())
 
 ##=======================================================================
 

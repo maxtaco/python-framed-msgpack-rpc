@@ -125,6 +125,9 @@ class Server (threading.Thread, server.ContextualServer, ssh.ServerBase):
         k = self.pubkeys.get(username)
         return k and k == key
 
+    def sshSessionRequest(self, transport, chanid):
+        return transport.is_authenticated()
+
     def run(self):
         self.listenRetry(3,self.cond)
     def stop(self):
@@ -204,6 +207,18 @@ class SshTest (unittest.TestCase):
         ok = t.connect()
         self.assertTrue(not ok)
         self.assertTrue(t.getError('clientAuth'))
+
+    def test_bad_login_no_client_auth (self):
+        logo.info("test_bad_login_no_client_auth")
+        key = ssh_key.SshPrivkey(shortfile = self.server.keyfiles["b"])
+        t = ssh.SshClientTransport(
+            remote=fmprpc.InternetAddress(port = self.PORT),
+            known_hosts=self.server.khr_good)
+        global g_log_level
+        t.getLogger().setLevel(g_log_level)
+        ok = t.connect()
+        self.assertTrue(not ok)
+        self.assertTrue(t.getError('session'))
 
     def test_bad_login_bad_host_auth (self):
         logo.info("test_bad_login_bad_host_auth")

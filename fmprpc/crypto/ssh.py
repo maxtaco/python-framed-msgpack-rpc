@@ -9,7 +9,7 @@ import os
 import socket
 import os.path
 from fmprpc.err import ServerKeyError
-from fmprpc.util import safepop
+from fmprpc.util import safepop, formatFingerprint
 
 ##=======================================================================
 
@@ -56,9 +56,14 @@ class SshClientStreamWrapper(SshStreamWrapper):
             self.warn("Transport was dead in SshClientStreamWrapper")
         elif self.doSshHandshake(tc):
             self._ssh_transport = tc
-            self._ssh_channel = tc.open_session()
-            transport.ClearStreamWrapper.start(self)
-            ret = True
+            try:
+                self._ssh_channel = tc.open_session()
+                transport.ClearStreamWrapper.start(self)
+                ret = True
+            except paramiko.ChannelException as e:
+                self.reportError("session", str(e))
+                self.warn("Failed to open a session: {0}".format(e))
+                ret = False
         else:
             self.warn("+ SshClientStreamWrapper closing due to bad handshake")
             tc.close()
@@ -235,14 +240,27 @@ class SshClientRobustTransport(transport.RobustTransport):
 class SshServerStreamWrapper (SshStreamWrapper):
     def __init__(self, s, transport):
         SshStreamWrapper.__init__ (self, s, transport)
+        self._ssh_transport = None
+        self._ssh_channel = None
+
+    def is_authenticated(self):
+        ret = False
+        if self._ssh_transport:
+            ret = self._ssh_transport.is_authenticated()
+        return ret
+
+    def get_username(self):
+        ret = None
+        if self._ssh_transport:
+            ret = self._ssh_transport.get_username()
+        return ret
 
     def start(self):
-        ssht = paramiko.Transport(self._socket)
+        self._ssh_transport = ssht = paramiko.Transport(self._socket)
         chan = None
         p = self.transport()
         if p: chan = p.doSshHandshake(ssht)
         if chan:
-            self._ssh_transport = ssht
             self._ssh_channel = chan
             transport.ClearStreamWrapper.start(self)
             ret = True 
@@ -257,29 +275,45 @@ class SshServerTransport (transport.Transport, paramiko.ServerInterface):
         transport.Transport.__init__ (self, **kwargs)
         self.setWrapperClass(SshServerStreamWrapper)
 
+    def is_authenticated(self):
+        ret = False
+        if self._stream_w:
+            ret = self._stream_w.is_authenticated()
+        return ret
+
+    def get_username(self):
+        ret = None
+        if self._stream_w:
+            ret = self._stream_w.get_username()
+        return ret
+
     def check_channel_request(self, kind, chanid):
+        ok = False
         if kind == 'session':
-            ret = paramiko.OPEN_SUCCEEDED
 
             # This is a good time to tell our subclass that the user is
-            # authenticated.  Because they can only ask for a channel/session
-            # after they are authenticated.  Of course, this isn't
-            # a mandatory hook...
-            try:
-                self._parent.sshSessionRequest(self, chanid)
-            except AttributeError as e:
-                # It's OK if the subclass didn't implement this, we can
-                # ignore it...
-                pass
+            # authenticated, or to deny a session if the user's auth
+            # is required...
+            ok = self._parent.sshSessionRequest(self, chanid)
+            if not ok:
+                self.warn("Session request rejected for {0} (auth={1})".format(
+                    self.get_username(), self.is_authenticated()))
         else:
             self.warn("Reject open request for channel {0}/{1}"
                 .format(kind, chanid))
-            ret = paramiko.OPEN_FAILED_ADMINISTRATIVELY_PROHIBITED
+            ok = False
+
+        if ok: ret = paramiko.OPEN_SUCCEEDED
+        else : ret = paramiko.OPEN_FAILED_ADMINISTRATIVELY_PROHIBITED
         return ret
 
     def check_auth_password(self, username, pw):
         self.warn("Rejecting PW login attempt by {0} w/ {1}"
                 .format(username, pw))
+        return paramiko.AUTH_FAILED
+
+    def check_auth_none(self, username):
+        self.warn("Rejecting 'non' attempt by {0}".format(username))
         return paramiko.AUTH_FAILED
 
     def get_allowed_auths(self, username): return 'publickey'
@@ -291,15 +325,15 @@ class SshServerTransport (transport.Transport, paramiko.ServerInterface):
         return False
 
     def check_auth_publickey(self, username, key):
-        fp = hexlify(key.get_fingerprint())
-        self.debug("+ check_auth_publickey {0}@{1}".format(username, fp))
+        ok = False
+        fp = formatFingerprint(key.get_fingerprint())
+        self.info("+ check_auth_publickey {0}@{1}".format(username, fp))
         if self._parent:
-            ret = self._parent.sshCheckAuthPublickey(username, key, self)
-            self.debug("- check_auth_publickey {0}@{1} -> {2}".format(username, fp, ret))
+            ok = self._parent.sshCheckAuthPublickey(username, key, self)
+            self.info("- check_auth_publickey {0}@{1} -> {2}".format(username, fp, ok))
         else:
             self.warn("Auth pubkey failed due to dead parent for {0}".format(username))
-            ret = paramiko.AUTH_FAILED
-        return ret
+        return (paramiko.AUTH_SUCCESSFUL if ok else paramiko.AUTH_FAILED)
 
     def doSshHandshake(self, ssht):
         chan = None
@@ -345,6 +379,9 @@ class AnonSshServerTransport (SshServerTransport):
     def check_auth_publickey(self, username, key):
         return paramiko.AUTH_FAILED
 
+    def check_channel_request(self, kind, chanid):
+        return paramiko.OPEN_SUCCEEDED
+
 ##=======================================================================
 
 def enableServer(obj):
@@ -352,7 +389,8 @@ def enableServer(obj):
     SSH on all incoming connections on this server.
     """
 
-    methods = [ "sshAddServerKey", "sshGetAcceptTimeout", "sshCheckAuthPublickey"]
+    methods = [ "sshAddServerKey", "sshGetAcceptTimeout", "sshCheckAuthPublickey",
+                "sshSessionRequest"]
     for m in methods:
         if not hasattr(obj, m):
             raise NotImplementedError, "Server doesn't implement {0}".format(m)

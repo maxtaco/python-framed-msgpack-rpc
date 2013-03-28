@@ -71,7 +71,7 @@ class ClearStreamWrapper (log.Base):
         self._credentials = None
         log.Base.__init__(self, transport().getLogger())
         rh = s.getpeername()[0] if s else None
-        self.remote = transport()._remote.clone(ip = rh)
+        self._remote = transport()._remote.clone(ip = rh)
 
     def getCredentials (self): return self._credentials
     def setCredentials (self, c): self._credentials = c
@@ -140,7 +140,7 @@ class ClearStreamWrapper (log.Base):
     def stream (self): return self._socket
     def isConnected (self): return not not self._socket
     def getGeneration (self): return self.generation
-    def remote(self): return self.remote
+    def remote(self): return self._remote
 
     def authenticatedUsername(self):
         """Some subclasses of the clear stream can authenticate users
@@ -592,7 +592,7 @@ class RobustTransport (Transport):
 
         start = time.time()
         inv = self.newInvocation(program=program, method=method, arg=arg, notify=notify)
-        ret = inv.call()
+        ret = inv.invoke()
         dur = time.time() - start
 
         if eth and eth <= dur: fn = self.error

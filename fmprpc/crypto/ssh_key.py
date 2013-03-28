@@ -144,11 +144,11 @@ class SshPubkey (Base):
 
         if klass:
             try:
-                data = base64.decodestring(data)
+                data = base64.b64decode(data)
                 self.key = klass(data=data)
                 ret = True
-            except binascii.error as e:
-                self._err = "encoding error: {0}".format(e)
+            except TypeError as e:
+                self._err = "encoding error: {0} (dat={1})".format(e, data)
             except paramiko.SSHException as e:
                 self._err = "invalid key: {0}".format(e)
         else:

@@ -159,7 +159,7 @@ class SshClientStreamWrapper(SshStreamWrapper):
     def __doHostAuth(self, t):
         self.info ("+ __doHostAuth")
         key = t.get_remote_server_key()
-        host = self.remote.host
+        host = self.remote().host
         self.info("Got remote server key for {0}: {1}".format(host, key.get_base64()))
         self.debug("++ verify via known_hosts: {0}".format(self.khr))
         (ok, err) = self.khr.verify(host, key)

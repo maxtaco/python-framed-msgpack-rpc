@@ -129,6 +129,14 @@ class SshPubkey (Base):
         self.loadFromTuple(d.get("type"), d.get("key"), d.get("name"), d.get("rkey"))
 
     @classmethod
+    def getRawKey(klass, d): 
+        raw = d.get("rkey")
+        if raw is None:
+            e = d.get("key")
+            if e: raw = base64.b64decode(e)
+        return raw
+
+    @classmethod
     def createFromDict(klass, d):
         ret = SshPubkey()
         ret.loadFromDict(d)

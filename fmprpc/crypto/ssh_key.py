@@ -166,7 +166,7 @@ class SshPubkey (Base):
             except TypeError as e:
                 self._err = "encoding error: {0} (dat={1})".format(e, data)
 
-        if data:
+        if klass and data:
             try:
                 self.key = klass(data=data)
                 ret = True
